@@ -33,7 +33,10 @@ from watermark import apply_preview_treatment
 # Ayarlar (ortam değişkenlerinden)
 # ---------------------------------------------------------------------------
 FAL_KEY = os.environ.get("FAL_KEY", "")
-FAL_MODEL_URL = "https://fal.run/fal-ai/illusion-diffusion"
+FAL_SUBMIT_URL = "https://queue.fal.run/fal-ai/illusion-diffusion"
+FAL_QUEUE_MAX_WAIT_S = 90   # kuyruk toplam bekleme tavanı (soğuk başlangıca geniş pay)
+FAL_POLL_INTERVAL_S = 1.2   # her durum sorgusu arası bekleme
+FAL_SHORT_CALL_TIMEOUT_S = 12  # gönderim/sorgu/sonuç çağrılarının HER BİRİ kısa tutulur
 
 CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "dfclxpzlo")
 CLOUDINARY_UPLOAD_PRESET = os.environ.get("CLOUDINARY_UPLOAD_PRESET", "visotale_uploads")
@@ -50,7 +53,6 @@ ALLOWED_ORIGINS = [
 ]
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20MB — frontend ile aynı sınır
-FAL_TIMEOUT_S = 45  # fal.ai model "soğuk" başlarsa ilk çağrı yavaş olabilir; ısınınca hızlanır
 
 app = FastAPI(title="Visotale Wizard Backend")
 
@@ -83,6 +85,13 @@ def _fetch_source_bytes(file: UploadFile | None, image_url: str | None) -> bytes
 
 
 def _call_illusion_diffusion(conditioning_data_uri: str, painting: dict) -> str:
+    """
+    fal.ai'nin KUYRUK API'sini kullanır: tek uzun bağlantı yerine
+    (gönder -> kısa aralıklarla durumu sor -> bitince sonucu al).
+    Bu yöntem, tek bir uzun HTTP bağlantısının bir ara katmanda
+    (proxy, yük dengeleyici vb.) zamanından önce kesilme riskini
+    ortadan kaldırır ve soğuk başlangıçlara karşı çok daha dayanıklıdır.
+    """
     if not FAL_KEY:
         raise HTTPException(
             status_code=500,
@@ -101,23 +110,59 @@ def _call_illusion_diffusion(conditioning_data_uri: str, painting: dict) -> str:
     }
     headers = {"Authorization": f"Key {FAL_KEY}", "Content-Type": "application/json"}
 
+    # 1) İşi kuyruğa gönder
     try:
-        resp = requests.post(
-            FAL_MODEL_URL, json=payload, headers=headers, timeout=FAL_TIMEOUT_S
+        submit = requests.post(
+            FAL_SUBMIT_URL, json=payload, headers=headers, timeout=FAL_SHORT_CALL_TIMEOUT_S
         )
-    except requests.Timeout:
+    except requests.RequestException:
+        raise HTTPException(status_code=502, detail="Yapay zekâ servisine ulaşılamadı. Lütfen tekrar dene.")
+
+    if not submit.ok:
         raise HTTPException(
-            status_code=504, detail="Üretim zaman aşımına uğradı. Lütfen tekrar dene."
+            status_code=502, detail=f"Yapay zekâ servisi hata döndü ({submit.status_code})."
         )
 
-    if not resp.ok:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Yapay zekâ servisi hata döndü ({resp.status_code}).",
-        )
+    sub_data = submit.json()
+    request_id = sub_data.get("request_id")
+    status_url = sub_data.get("status_url")
+    response_url = sub_data.get("response_url")
+    if not request_id:
+        raise HTTPException(status_code=502, detail="Yapay zekâ servisi geçerli bir istek kimliği döndürmedi.")
+    if not status_url:
+        status_url = f"{FAL_SUBMIT_URL}/requests/{request_id}/status"
+    if not response_url:
+        response_url = f"{FAL_SUBMIT_URL}/requests/{request_id}"
 
-    data = resp.json()
-    # fal modelleri genelde images: [{url: ...}] döner; olası varyasyonları da kontrol et
+    # 2) Kısa aralıklarla durumu sor (her sorgu kısa, toplam bekleme uzun olabilir)
+    deadline = time.time() + FAL_QUEUE_MAX_WAIT_S
+    status = None
+    while time.time() < deadline:
+        time.sleep(FAL_POLL_INTERVAL_S)
+        try:
+            st_resp = requests.get(status_url, headers=headers, timeout=FAL_SHORT_CALL_TIMEOUT_S)
+        except requests.RequestException:
+            continue  # geçici ağ hatası — bir sonraki turda tekrar dene
+        if not st_resp.ok:
+            continue
+        status = st_resp.json().get("status")
+        if status == "COMPLETED":
+            break
+        if status in ("FAILED", "ERROR"):
+            raise HTTPException(status_code=502, detail="Yapay zekâ servisi üretimi tamamlayamadı. Lütfen tekrar dene.")
+    else:
+        raise HTTPException(status_code=504, detail="Üretim zaman aşımına uğradı. Lütfen tekrar dene.")
+
+    # 3) Sonucu al
+    try:
+        result_resp = requests.get(response_url, headers=headers, timeout=FAL_SHORT_CALL_TIMEOUT_S)
+    except requests.RequestException:
+        raise HTTPException(status_code=502, detail="Sonuç alınamadı. Lütfen tekrar dene.")
+
+    if not result_resp.ok:
+        raise HTTPException(status_code=502, detail="Sonuç alınamadı. Lütfen tekrar dene.")
+
+    data = result_resp.json()
     url = None
     if isinstance(data.get("images"), list) and data["images"]:
         url = data["images"][0].get("url")
