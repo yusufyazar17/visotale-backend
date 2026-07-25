@@ -50,7 +50,7 @@ ALLOWED_ORIGINS = [
 ]
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20MB — frontend ile aynı sınır
-FAL_TIMEOUT_S = 25  # önizleme 30sn hedefini tutturmak için sıkı zaman aşımı
+FAL_TIMEOUT_S = 45  # fal.ai model "soğuk" başlarsa ilk çağrı yavaş olabilir; ısınınca hızlanır
 
 app = FastAPI(title="Visotale Wizard Backend")
 
