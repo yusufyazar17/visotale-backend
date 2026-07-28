@@ -22,7 +22,7 @@ FACE_CASCADE = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
 
-CONDITIONING_SIZE = 1024
+CONDITIONING_SIZE = 768  # 1024'ten düşürüldü — daha hızlı üretim, kalite farkı gözle görülmüyor
 
 
 def _detect_faces(cv_img_gray):
