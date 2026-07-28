@@ -48,9 +48,9 @@ PAINTINGS = {
         ),
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.1,
-        "guidance_scale": 8.5,
+        "guidance_scale": 7.5,
         "num_inference_steps": 20,
-        "control_guidance_end": 0.80,
+        "control_guidance_end": 1.0,
     },
     "monet_bridge": {
         "label": "Nilüfer Havuzu / Japon Köprüsü",
@@ -72,9 +72,9 @@ PAINTINGS = {
         ),
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.15,
-        "guidance_scale": 8.5,
+        "guidance_scale": 7.5,
         "num_inference_steps": 20,
-        "control_guidance_end": 0.80,
+        "control_guidance_end": 1.0,
     },
     "baroque_bouquet": {
         "label": "Barok Çiçek Buketi",
@@ -98,9 +98,9 @@ PAINTINGS = {
         ),
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.15,
-        "guidance_scale": 8.5,
+        "guidance_scale": 7.5,
         "num_inference_steps": 20,
-        "control_guidance_end": 0.80,
+        "control_guidance_end": 1.0,
     },
     "sunflower_bouquet": {
         "label": "Ayçiçeği Buketi",
@@ -122,9 +122,9 @@ PAINTINGS = {
         ),
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.2,
-        "guidance_scale": 8.5,
+        "guidance_scale": 7.5,
         "num_inference_steps": 20,
-        "control_guidance_end": 0.80,
+        "control_guidance_end": 1.0,
     },
 }
 
