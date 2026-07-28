@@ -34,7 +34,7 @@ from watermark import apply_preview_treatment
 # ---------------------------------------------------------------------------
 FAL_KEY = os.environ.get("FAL_KEY", "")
 FAL_SUBMIT_URL = "https://queue.fal.run/fal-ai/illusion-diffusion"
-FAL_QUEUE_MAX_WAIT_S = 90   # kuyruk toplam bekleme tavanı (soğuk başlangıca geniş pay)
+FAL_QUEUE_MAX_WAIT_S = 55   # 90sn'de Railway'in kendi gateway'i araya girmiş olabilir — güvenli tarafta kal
 FAL_POLL_INTERVAL_S = 1.2   # her durum sorgusu arası bekleme
 FAL_SHORT_CALL_TIMEOUT_S = 12  # gönderim/sorgu/sonuç çağrılarının HER BİRİ kısa tutulur
 
@@ -218,6 +218,7 @@ async def create_preview(
 ):
     t0 = time.time()
     timings = {}
+    conditioning_url = None
 
     def mark(label, since):
         timings[label] = round(time.time() - since, 2)
@@ -227,56 +228,74 @@ async def create_preview(
     if not painting:
         raise HTTPException(status_code=400, detail="Geçersiz tablo seçimi.")
 
-    # 1) kaynak fotoğrafı al
-    t = time.time()
-    raw_bytes = _fetch_source_bytes(file, image_url)
-    t = mark("1_kaynagi_al", t)
+    try:
+        # 1) kaynak fotoğrafı al
+        t = time.time()
+        raw_bytes = _fetch_source_bytes(file, image_url)
+        t = mark("1_kaynagi_al", t)
 
-    # 2) yüz(ler)i bul, kare kırp, gri+kontrast conditioning görseli üret
-    conditioning_img = prepare_conditioning_image(raw_bytes)
-    conditioning_data_uri = to_data_uri(conditioning_img)
-    t = mark("2_yuz_tespit_hazirlik", t)
+        # 2) yüz(ler)i bul, kare kırp, gri+kontrast conditioning görseli üret
+        conditioning_img = prepare_conditioning_image(raw_bytes)
+        conditioning_data_uri = to_data_uri(conditioning_img)
+        t = mark("2_yuz_tespit_hazirlik", t)
 
-    # 2b) conditioning görselini de Cloudinary'e yükle — inceleyebilmek için
-    from io import BytesIO
-    cond_buf = BytesIO()
-    conditioning_img.save(cond_buf, format="JPEG", quality=90)
-    conditioning_url = _upload_to_cloudinary(cond_buf.getvalue(), f"{painting_key}-conditioning.jpg")
-    t = mark("2b_conditioning_yukle", t)
+        # 2b) conditioning görselini de Cloudinary'e yükle — inceleyebilmek için
+        from io import BytesIO
+        cond_buf = BytesIO()
+        conditioning_img.save(cond_buf, format="JPEG", quality=90)
+        conditioning_url = _upload_to_cloudinary(cond_buf.getvalue(), f"{painting_key}-conditioning.jpg")
+        t = mark("2b_conditioning_yukle", t)
 
-    # 3) illusion-diffusion çağrısı (tablo başına ayarlanmış prompt/negatif/scale)
-    result_url = _call_illusion_diffusion(conditioning_data_uri, painting, timings)
-    t = time.time()  # _call_illusion_diffusion kendi iç zamanlarını timings'e yazdı
+        # 3) illusion-diffusion çağrısı (tablo başına ayarlanmış prompt/negatif/scale)
+        result_url = _call_illusion_diffusion(conditioning_data_uri, painting, timings)
+        t = time.time()  # _call_illusion_diffusion kendi iç zamanlarını timings'e yazdı
 
-    # 4) sonucu indir, önizleme muamelesi uygula (küçült + filigran)
-    from PIL import Image
+        # 4) sonucu indir, önizleme muamelesi uygula (küçült + filigran)
+        from PIL import Image
 
-    result_bytes = _download_image_bytes(result_url)
-    t = mark("4a_sonucu_indir", t)
+        result_bytes = _download_image_bytes(result_url)
+        t = mark("4a_sonucu_indir", t)
 
-    result_img = Image.open(BytesIO(result_bytes))
-    preview_img = apply_preview_treatment(result_img)
-    t = mark("4b_watermark", t)
+        result_img = Image.open(BytesIO(result_bytes))
+        preview_img = apply_preview_treatment(result_img)
+        t = mark("4b_watermark", t)
 
-    buf = BytesIO()
-    preview_img.save(buf, format="JPEG", quality=88)
-    preview_bytes = buf.getvalue()
+        buf = BytesIO()
+        preview_img.save(buf, format="JPEG", quality=88)
+        preview_bytes = buf.getvalue()
 
-    # 5) Cloudinary'e yükle, linki döndür
-    preview_url = _upload_to_cloudinary(preview_bytes, f"{painting_key}-preview.jpg")
-    t = mark("5_preview_yukle", t)
+        # 5) Cloudinary'e yükle, linki döndür
+        preview_url = _upload_to_cloudinary(preview_bytes, f"{painting_key}-preview.jpg")
+        t = mark("5_preview_yukle", t)
 
-    elapsed = round(time.time() - t0, 1)
-    return JSONResponse({
-        "ok": True,
-        "preview_url": preview_url,
-        "elapsed_s": elapsed,
-        "debug": {
-            "conditioning_url": conditioning_url,   # 2. adımın çıktısı
-            "raw_result_url": result_url,           # 3. adımın çıktısı (fal'ın ham sonucu, filigransız)
-            "timings_s": timings,
-        },
-    })
+        elapsed = round(time.time() - t0, 1)
+        return JSONResponse({
+            "ok": True,
+            "preview_url": preview_url,
+            "elapsed_s": elapsed,
+            "debug": {
+                "conditioning_url": conditioning_url,   # 2. adımın çıktısı
+                "raw_result_url": result_url,           # 3. adımın çıktısı (fal'ın ham sonucu, filigransız)
+                "timings_s": timings,
+            },
+        })
+
+    except HTTPException as exc:
+        # Hata olsa bile o ana kadar ölçülen süreleri ve varsa conditioning
+        # görselini geri döndür — "nerede göreceğim" sorusunun cevabı burada.
+        elapsed = round(time.time() - t0, 1)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "ok": False,
+                "error": exc.detail,
+                "elapsed_s": elapsed,
+                "debug": {
+                    "conditioning_url": conditioning_url,
+                    "timings_s": timings,
+                },
+            },
+        )
 
 
 @app.exception_handler(HTTPException)
