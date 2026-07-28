@@ -80,21 +80,21 @@ PAINTINGS = {
         "label": "Barok Çiçek Buketi",
         "artist": "Klasik natürmort",
         "prompt": (
-            "Opulent 17th-century Dutch Golden Age flower still life in the style "
-            "of Jan Davidsz de Heem, a lush overflowing bouquet completely filling "
-            "the upper two-thirds of the canvas, layered clusters of full-bloom "
-            "crimson and burgundy roses, blush-pink peonies with ruffled petals, "
-            "striped orange and yellow parrot tulips, deep purple ranunculus, and "
-            "small white blossoms, dense overlapping petals with delicate veined "
-            "green leaves and curling stems filling every gap, arranged in an "
-            "ornate polished bronze footed urn with engraved floral relief and "
-            "bright specular highlights, urn sitting on a dark wooden ledge, "
-            "the entire bouquet set against a deep black-brown background, single "
-            "dramatic light source from the upper left creating strong chiaroscuro "
-            "contrast between illuminated petals and shadowed depths, thick "
-            "textured oil paint with visible brushwork and glossy varnish sheen, "
-            "masterpiece, museum quality wall art, gallery lighting, 8k highly "
-            "detailed"
+            "Classical Dutch Golden Age still life painting, a lush bouquet of "
+            "multiple full-bloom flowers densely clustered together — crimson-red "
+            "and blush-pink peonies, deep burgundy roses, white ranunculus, and "
+            "small purple accent blooms — with overlapping ruffled petals and "
+            "soft green leaves filling the bouquet, standing in a single tall "
+            "slender polished bronze vase with engraved detailing and bright "
+            "specular highlights, the vase resting on a flat light gray stone "
+            "table surface that spans the bottom of the frame, the table is the "
+            "only surface visible, everything above and behind the bouquet is "
+            "pure solid black background with no other objects and no texture, "
+            "single dramatic light source from the upper left illuminating the "
+            "petals, vase, and table surface with strong chiaroscuro contrast, "
+            "the petals rendered with thick textured oil paint and visible "
+            "brushwork, masterpiece, museum quality wall art, gallery lighting, "
+            "8k highly detailed"
         ),
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.15,
