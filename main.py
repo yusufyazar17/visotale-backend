@@ -84,13 +84,16 @@ def _fetch_source_bytes(file: UploadFile | None, image_url: str | None) -> bytes
     return data
 
 
-def _call_illusion_diffusion(conditioning_data_uri: str, painting: dict) -> str:
+def _call_illusion_diffusion(conditioning_data_uri: str, painting: dict, timings: dict) -> str:
     """
     fal.ai'nin KUYRUK API'sini kullanır: tek uzun bağlantı yerine
     (gönder -> kısa aralıklarla durumu sor -> bitince sonucu al).
     Bu yöntem, tek bir uzun HTTP bağlantısının bir ara katmanda
     (proxy, yük dengeleyici vb.) zamanından önce kesilme riskini
     ortadan kaldırır ve soğuk başlangıçlara karşı çok daha dayanıklıdır.
+
+    `timings` dict'ine 3a/3b/3c alt adım sürelerini yazar (main.py'deki
+    genel zaman ölçümüyle aynı sözlüğü paylaşır).
     """
     if not FAL_KEY:
         raise HTTPException(
@@ -110,13 +113,15 @@ def _call_illusion_diffusion(conditioning_data_uri: str, painting: dict) -> str:
     }
     headers = {"Authorization": f"Key {FAL_KEY}", "Content-Type": "application/json"}
 
-    # 1) İşi kuyruğa gönder
+    # 3a) İşi kuyruğa gönder
+    t_sub = time.time()
     try:
         submit = requests.post(
             FAL_SUBMIT_URL, json=payload, headers=headers, timeout=FAL_SHORT_CALL_TIMEOUT_S
         )
     except requests.RequestException:
         raise HTTPException(status_code=502, detail="Yapay zekâ servisine ulaşılamadı. Lütfen tekrar dene.")
+    timings["3a_kuyruga_gonder"] = round(time.time() - t_sub, 2)
 
     if not submit.ok:
         raise HTTPException(
@@ -134,11 +139,14 @@ def _call_illusion_diffusion(conditioning_data_uri: str, painting: dict) -> str:
     if not response_url:
         response_url = f"{FAL_SUBMIT_URL}/requests/{request_id}"
 
-    # 2) Kısa aralıklarla durumu sor (her sorgu kısa, toplam bekleme uzun olabilir)
+    # 3b) Kısa aralıklarla durumu sor (her sorgu kısa, toplam bekleme uzun olabilir)
+    t_wait = time.time()
     deadline = time.time() + FAL_QUEUE_MAX_WAIT_S
     status = None
+    poll_count = 0
     while time.time() < deadline:
         time.sleep(FAL_POLL_INTERVAL_S)
+        poll_count += 1
         try:
             st_resp = requests.get(status_url, headers=headers, timeout=FAL_SHORT_CALL_TIMEOUT_S)
         except requests.RequestException:
@@ -151,9 +159,14 @@ def _call_illusion_diffusion(conditioning_data_uri: str, painting: dict) -> str:
         if status in ("FAILED", "ERROR"):
             raise HTTPException(status_code=502, detail="Yapay zekâ servisi üretimi tamamlayamadı. Lütfen tekrar dene.")
     else:
+        timings["3b_kuyrukta_bekleme"] = round(time.time() - t_wait, 2)
+        timings["3b_poll_sayisi"] = poll_count
         raise HTTPException(status_code=504, detail="Üretim zaman aşımına uğradı. Lütfen tekrar dene.")
+    timings["3b_kuyrukta_bekleme"] = round(time.time() - t_wait, 2)
+    timings["3b_poll_sayisi"] = poll_count
 
-    # 3) Sonucu al
+    # 3c) Sonucu al
+    t_fetch = time.time()
     try:
         result_resp = requests.get(response_url, headers=headers, timeout=FAL_SHORT_CALL_TIMEOUT_S)
     except requests.RequestException:
@@ -161,6 +174,7 @@ def _call_illusion_diffusion(conditioning_data_uri: str, painting: dict) -> str:
 
     if not result_resp.ok:
         raise HTTPException(status_code=502, detail="Sonuç alınamadı. Lütfen tekrar dene.")
+    timings["3c_sonucu_al"] = round(time.time() - t_fetch, 2)
 
     data = result_resp.json()
     url = None
@@ -203,28 +217,46 @@ async def create_preview(
     file: UploadFile | None = File(None),
 ):
     t0 = time.time()
+    timings = {}
+
+    def mark(label, since):
+        timings[label] = round(time.time() - since, 2)
+        return time.time()
 
     painting = get_painting(painting_key, strength)
     if not painting:
         raise HTTPException(status_code=400, detail="Geçersiz tablo seçimi.")
 
     # 1) kaynak fotoğrafı al
+    t = time.time()
     raw_bytes = _fetch_source_bytes(file, image_url)
+    t = mark("1_kaynagi_al", t)
 
     # 2) yüz(ler)i bul, kare kırp, gri+kontrast conditioning görseli üret
     conditioning_img = prepare_conditioning_image(raw_bytes)
     conditioning_data_uri = to_data_uri(conditioning_img)
+    t = mark("2_yuz_tespit_hazirlik", t)
+
+    # 2b) conditioning görselini de Cloudinary'e yükle — inceleyebilmek için
+    from io import BytesIO
+    cond_buf = BytesIO()
+    conditioning_img.save(cond_buf, format="JPEG", quality=90)
+    conditioning_url = _upload_to_cloudinary(cond_buf.getvalue(), f"{painting_key}-conditioning.jpg")
+    t = mark("2b_conditioning_yukle", t)
 
     # 3) illusion-diffusion çağrısı (tablo başına ayarlanmış prompt/negatif/scale)
-    result_url = _call_illusion_diffusion(conditioning_data_uri, painting)
+    result_url = _call_illusion_diffusion(conditioning_data_uri, painting, timings)
+    t = time.time()  # _call_illusion_diffusion kendi iç zamanlarını timings'e yazdı
 
     # 4) sonucu indir, önizleme muamelesi uygula (küçült + filigran)
-    result_bytes = _download_image_bytes(result_url)
-    from io import BytesIO
     from PIL import Image
+
+    result_bytes = _download_image_bytes(result_url)
+    t = mark("4a_sonucu_indir", t)
 
     result_img = Image.open(BytesIO(result_bytes))
     preview_img = apply_preview_treatment(result_img)
+    t = mark("4b_watermark", t)
 
     buf = BytesIO()
     preview_img.save(buf, format="JPEG", quality=88)
@@ -232,9 +264,19 @@ async def create_preview(
 
     # 5) Cloudinary'e yükle, linki döndür
     preview_url = _upload_to_cloudinary(preview_bytes, f"{painting_key}-preview.jpg")
+    t = mark("5_preview_yukle", t)
 
     elapsed = round(time.time() - t0, 1)
-    return JSONResponse({"ok": True, "preview_url": preview_url, "elapsed_s": elapsed})
+    return JSONResponse({
+        "ok": True,
+        "preview_url": preview_url,
+        "elapsed_s": elapsed,
+        "debug": {
+            "conditioning_url": conditioning_url,   # 2. adımın çıktısı
+            "raw_result_url": result_url,           # 3. adımın çıktısı (fal'ın ham sonucu, filigransız)
+            "timings_s": timings,
+        },
+    })
 
 
 @app.exception_handler(HTTPException)
