@@ -6,12 +6,23 @@ fal.ai illusion-diffusion playground'unda elle test edilip onaylanan
 değerlerdir (bkz. proje sohbet geçmişi). Buradaki sayıları değiştirirken
 dikkatli ol — her biri "tablo tanınıyor + yüz gizli ama gözünü kısınca
 çıkıyor" dengesi için özel ayarlandı.
+
+STRENGTH_DELTA: müşterinin seçtiği "Az / Orta / Çok" belirginlik seviyesi,
+tablonun temel conditioning_scale değerine eklenen/çıkarılan bir pay.
+"Az" -> yüz daha gizli ama tablo daha sağlam kalır (bozulma riski azalır).
+"Çok" -> yüz daha belirgin çıkar ama tablo bozulma riski artar.
 """
 
 COMMON_NEGATIVE = (
     "(low quality, worst quality:1.4), text, signature, watermark, blurry, "
     "deformed, photograph, realistic pasted face, 3d render, human, person"
 )
+
+STRENGTH_DELTA = {
+    "az": -0.10,
+    "orta": 0.0,
+    "cok": 0.10,
+}
 
 PAINTINGS = {
     "starry_night": {
@@ -28,7 +39,7 @@ PAINTINGS = {
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.1,
         "guidance_scale": 7.5,
-        "num_inference_steps": 20,
+        "num_inference_steps": 14,
         "control_guidance_end": 0.80,
     },
     "monet_bridge": {
@@ -44,7 +55,7 @@ PAINTINGS = {
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.15,
         "guidance_scale": 7.5,
-        "num_inference_steps": 20,
+        "num_inference_steps": 14,
         "control_guidance_end": 0.80,
     },
     "baroque_bouquet": {
@@ -63,7 +74,7 @@ PAINTINGS = {
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.15,
         "guidance_scale": 7.5,
-        "num_inference_steps": 20,
+        "num_inference_steps": 14,
         "control_guidance_end": 0.80,
     },
     "sunflower_bouquet": {
@@ -82,11 +93,20 @@ PAINTINGS = {
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.2,
         "guidance_scale": 7.5,
-        "num_inference_steps": 20,
+        "num_inference_steps": 14,
         "control_guidance_end": 0.80,
     },
 }
 
 
-def get_painting(key: str):
-    return PAINTINGS.get(key)
+def get_painting(key: str, strength: str = "orta"):
+    base = PAINTINGS.get(key)
+    if not base:
+        return None
+
+    delta = STRENGTH_DELTA.get(strength, 0.0)
+    painting = dict(base)  # kopya — orijinali değiştirme
+    scale = base["conditioning_scale"] + delta
+    # güvenli aralık dışına taşmasın (çok düşükte yüz hiç çıkmaz, çok yüksekte tablo bozulur)
+    painting["conditioning_scale"] = max(0.85, min(1.5, round(scale, 2)))
+    return painting
