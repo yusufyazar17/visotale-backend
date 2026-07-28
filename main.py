@@ -198,12 +198,13 @@ def _upload_to_cloudinary(image_bytes: bytes, filename: str) -> str:
 @app.post("/create-preview")
 async def create_preview(
     painting_key: str = Form(...),
+    strength: str = Form("orta"),
     image_url: str | None = Form(None),
     file: UploadFile | None = File(None),
 ):
     t0 = time.time()
 
-    painting = get_painting(painting_key)
+    painting = get_painting(painting_key, strength)
     if not painting:
         raise HTTPException(status_code=400, detail="Geçersiz tablo seçimi.")
 
