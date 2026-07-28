@@ -15,7 +15,10 @@ tablonun temel conditioning_scale değerine eklenen/çıkarılan bir pay.
 
 COMMON_NEGATIVE = (
     "(low quality, worst quality:1.4), text, signature, watermark, blurry, "
-    "deformed, photograph, realistic pasted face, 3d render, human, person"
+    "deformed, photograph, realistic pasted face, 3d render, human, person, "
+    "asymmetry, mutated, disfigured, extra limbs, cropped, out of frame, "
+    "jpeg artifacts, compression artifacts, duplicate, tiling, grainy, "
+    "poorly drawn, bad anatomy, disproportionate"
 )
 
 STRENGTH_DELTA = {
@@ -29,71 +32,98 @@ PAINTINGS = {
         "label": "Yıldızlı Gece",
         "artist": "Van Gogh",
         "prompt": (
-            'Vincent van Gogh "The Starry Night", post-impressionist oil painting, '
-            "swirling glowing night sky with spiraling cobalt-blue and indigo currents, "
-            "large radiant golden-yellow stars and a crescent moon, dark flame-like "
-            "cypress tree, small village with a church spire and rolling hills, heavy "
-            "impasto thick expressive brushstrokes, masterpiece, museum quality wall "
-            "art, 8k"
+            'Vincent van Gogh "The Starry Night" (1889), post-impressionist oil '
+            "painting on canvas, turbulent night sky filled with swirling spiral "
+            "currents in deep ultramarine, cobalt blue, and indigo blending into "
+            "pale cerulean, eleven radiant golden-yellow stars each haloed with "
+            "concentric glowing rings, one oversized luminous crescent moon in "
+            "the upper right glowing amber-gold, one tall dark flame-shaped "
+            "cypress tree in the foreground reaching into the sky with twisting "
+            "black-green silhouette, small sleeping village below with pointed "
+            "blue-roofed cottages and one tall church spire, rolling indigo hills "
+            "in the background, thick heavy impasto brushstrokes applied in "
+            "rhythmic curving strokes following the movement of the sky, visible "
+            "raised paint texture, rich saturated color palette, masterpiece, "
+            "museum quality wall art, gallery lighting, 8k highly detailed"
         ),
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.1,
-        "guidance_scale": 7.5,
-        "num_inference_steps": 14,
+        "guidance_scale": 8.5,
+        "num_inference_steps": 20,
         "control_guidance_end": 0.80,
     },
     "monet_bridge": {
         "label": "Nilüfer Havuzu / Japon Köprüsü",
         "artist": "Claude Monet",
         "prompt": (
-            'Claude Monet "The Water Lily Pond", impressionist oil painting, green '
-            "arched Japanese footbridge over a pond, weeping willows and dense green "
-            "foliage, water lilies with pink and white blossoms on rippling water, "
-            "soft dappled light, blue-green reflections, loose impressionist "
-            "brushstrokes, masterpiece, museum quality wall art, 8k"
+            'Claude Monet "The Water Lily Pond" (1899), impressionist oil painting '
+            "on canvas, Giverny garden, an arched wooden Japanese footbridge "
+            "painted soft sage-green spanning the width of the canvas, ornate "
+            "curved railings with visible wood grain, cascading weeping willow "
+            "branches draping down from both sides framing the bridge, dense "
+            "layered green foliage in emerald, olive, and sage tones, calm "
+            "pond water beneath scattered with round lily pads and blooming "
+            "water lilies in soft pink, white, and pale yellow, gentle mirror-like "
+            "reflections of the bridge and trees rippling on the water surface, "
+            "warm dappled sunlight filtering through leaves creating patches of "
+            "golden light, loose visible impressionist brushstrokes, soft "
+            "atmospheric color blending, tranquil plein-air painting, masterpiece, "
+            "museum quality wall art, gallery lighting, 8k highly detailed"
         ),
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.15,
-        "guidance_scale": 7.5,
-        "num_inference_steps": 14,
+        "guidance_scale": 8.5,
+        "num_inference_steps": 20,
         "control_guidance_end": 0.80,
     },
     "baroque_bouquet": {
         "label": "Barok Çiçek Buketi",
         "artist": "Klasik natürmort",
         "prompt": (
-            "Opulent Dutch Baroque flower still life, a lush overflowing bouquet of "
-            "roses, peonies, tulips and ranunculus in crimson, deep pink, white, "
-            "cream and violet, dense overlapping petals and foliage filling the "
-            "upper canvas, arranged in an ornate polished bronze footed urn with "
-            "clear reflective highlights, sculpted detailing and a defined "
-            "silhouette against the dark background, dramatic chiaroscuro "
-            "lighting, oil painting with thick textured brushwork, masterpiece, "
-            "museum quality wall art, 8k"
+            "Opulent 17th-century Dutch Golden Age flower still life in the style "
+            "of Jan Davidsz de Heem, a lush overflowing bouquet completely filling "
+            "the upper two-thirds of the canvas, layered clusters of full-bloom "
+            "crimson and burgundy roses, blush-pink peonies with ruffled petals, "
+            "striped orange and yellow parrot tulips, deep purple ranunculus, and "
+            "small white blossoms, dense overlapping petals with delicate veined "
+            "green leaves and curling stems filling every gap, arranged in an "
+            "ornate polished bronze footed urn with engraved floral relief and "
+            "bright specular highlights, urn sitting on a dark wooden ledge, "
+            "the entire bouquet set against a deep black-brown background, single "
+            "dramatic light source from the upper left creating strong chiaroscuro "
+            "contrast between illuminated petals and shadowed depths, thick "
+            "textured oil paint with visible brushwork and glossy varnish sheen, "
+            "masterpiece, museum quality wall art, gallery lighting, 8k highly "
+            "detailed"
         ),
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.15,
-        "guidance_scale": 7.5,
-        "num_inference_steps": 14,
+        "guidance_scale": 8.5,
+        "num_inference_steps": 20,
         "control_guidance_end": 0.80,
     },
     "sunflower_bouquet": {
         "label": "Ayçiçeği Buketi",
         "artist": "Van Gogh esintili natürmort",
         "prompt": (
-            "Opulent Baroque still life of sunflowers, a lush overflowing bouquet "
-            "of vivid golden-yellow sunflowers of many sizes packed edge to edge "
-            "filling the canvas, interwoven with small wildflowers, wheat stalks, "
-            "dried seed heads and dark green foliage in the gaps, warm amber, "
-            "ochre and honey tones, arranged in an ornate polished bronze footed "
-            "urn with reflective highlights and a defined silhouette, dramatic "
-            "chiaroscuro lighting, warm dark background, oil painting with thick "
-            "textured brushwork, masterpiece, museum quality wall art, 8k"
+            "Opulent Baroque-style still life of sunflowers in the spirit of "
+            "Van Gogh, a lush overflowing bouquet completely filling the canvas "
+            "edge to edge, dozens of vivid golden-yellow sunflowers of varying "
+            "sizes and open angles with thick textured brown-black seed centers "
+            "and curling ochre petals, interwoven with small orange wildflowers, "
+            "golden wheat stalks, dried rust-brown seed heads, and dark olive-green "
+            "foliage filling every gap between blooms, arranged in an ornate "
+            "polished bronze footed urn with engraved detailing and warm specular "
+            "highlights, urn resting on a dark wooden surface, warm amber and "
+            "honey-toned dramatic chiaroscuro lighting from one side against a "
+            "deep warm-brown background, thick expressive impasto brushstrokes "
+            "with visible raised paint texture, masterpiece, museum quality wall "
+            "art, gallery lighting, 8k highly detailed"
         ),
         "negative_prompt": COMMON_NEGATIVE,
         "conditioning_scale": 1.2,
-        "guidance_scale": 7.5,
-        "num_inference_steps": 14,
+        "guidance_scale": 8.5,
+        "num_inference_steps": 20,
         "control_guidance_end": 0.80,
     },
 }
