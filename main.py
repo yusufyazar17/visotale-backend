@@ -38,7 +38,8 @@ import shopify_discount
 # ---------------------------------------------------------------------------
 FAL_KEY = os.environ.get("FAL_KEY", "")
 FAL_SUBMIT_URL = "https://queue.fal.run/fal-ai/illusion-diffusion"
-FAL_QUEUE_MAX_WAIT_S = 55   # 90sn'de Railway'in kendi gateway'i araya girmiş olabilir — güvenli tarafta kal
+FAL_QUEUE_MAX_WAIT_S = 55   # senkron /create-preview yolu için — Railway'in gateway'i araya girmesin diye temkinli
+FAL_QUEUE_MAX_WAIT_S_BACKGROUND = 300  # arka plan job'ları için — açık bir bağlantı yok, çok daha sabırlı olabiliriz
 FAL_POLL_INTERVAL_S = 1.2   # her durum sorgusu arası bekleme
 FAL_SHORT_CALL_TIMEOUT_S = 12  # gönderim/sorgu/sonuç çağrılarının HER BİRİ kısa tutulur
 
@@ -88,7 +89,7 @@ def _fetch_source_bytes(file: UploadFile | None, image_url: str | None) -> bytes
     return data
 
 
-def _call_illusion_diffusion(conditioning_data_uri: str, painting: dict, timings: dict) -> str:
+def _call_illusion_diffusion(conditioning_data_uri: str, painting: dict, timings: dict, max_wait_s: int = FAL_QUEUE_MAX_WAIT_S) -> str:
     """
     fal.ai'nin KUYRUK API'sini kullanır: tek uzun bağlantı yerine
     (gönder -> kısa aralıklarla durumu sor -> bitince sonucu al).
@@ -145,7 +146,7 @@ def _call_illusion_diffusion(conditioning_data_uri: str, painting: dict, timings
 
     # 3b) Kısa aralıklarla durumu sor (her sorgu kısa, toplam bekleme uzun olabilir)
     t_wait = time.time()
-    deadline = time.time() + FAL_QUEUE_MAX_WAIT_S
+    deadline = time.time() + max_wait_s
     status = None
     poll_count = 0
     while time.time() < deadline:
@@ -213,7 +214,7 @@ def _upload_to_cloudinary(image_bytes: bytes, filename: str) -> str:
 # ---------------------------------------------------------------------------
 # Endpoint
 # ---------------------------------------------------------------------------
-def _run_pipeline(raw_bytes: bytes, painting_key: str, painting: dict):
+def _run_pipeline(raw_bytes: bytes, painting_key: str, painting: dict, max_wait_s: int = FAL_QUEUE_MAX_WAIT_S):
     """
     Ortak üretim hattı: hem senkron /create-preview hem de arka plan
     job worker'ı bunu kullanır. Başarılı olursa dict döner, hata
@@ -239,7 +240,7 @@ def _run_pipeline(raw_bytes: bytes, painting_key: str, painting: dict):
         conditioning_url = _upload_to_cloudinary(cond_buf.getvalue(), f"{painting_key}-conditioning.jpg")
         t = mark("2b_conditioning_yukle", t)
 
-        result_url = _call_illusion_diffusion(conditioning_data_uri, painting, timings)
+        result_url = _call_illusion_diffusion(conditioning_data_uri, painting, timings, max_wait_s)
         t = time.time()
 
         from PIL import Image
@@ -316,7 +317,7 @@ FAST_PATH_THRESHOLD_S = 22  # bu sürenin üzerinde biterse "geç kaldı" sayıl
 def _generation_job_worker(job_id: str, raw_bytes: bytes, painting_key: str, painting: dict, email: str | None):
     t0 = time.time()
     try:
-        result = _run_pipeline(raw_bytes, painting_key, painting)
+        result = _run_pipeline(raw_bytes, painting_key, painting, FAL_QUEUE_MAX_WAIT_S_BACKGROUND)
         jobs.set_job_done(job_id, result)
 
         elapsed = time.time() - t0
@@ -330,8 +331,14 @@ def _generation_job_worker(job_id: str, raw_bytes: bytes, painting_key: str, pai
             )
     except HTTPException as exc:
         jobs.set_job_error(job_id, exc.detail)
+        if email:
+            discount = shopify_discount.create_one_time_discount(email)
+            emailer.send_failure_email(to_email=email, discount=discount)
     except Exception as exc:
         jobs.set_job_error(job_id, f"Beklenmedik hata: {exc}")
+        if email:
+            discount = shopify_discount.create_one_time_discount(email)
+            emailer.send_failure_email(to_email=email, discount=discount)
 
 
 @app.post("/create-preview-job")
