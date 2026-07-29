@@ -24,6 +24,8 @@ def create_job(meta: dict) -> str:
             "created_at": time.time(),
             "result": None,
             "error": None,
+            "email_sent": None,    # None = henüz denenmedi/gerekmedi, True/False = denendi
+            "email_detail": None,
             "meta": meta,
         }
         _cleanup_old_locked()
@@ -47,6 +49,13 @@ def set_job_error(job_id: str, error: str):
         if job_id in JOBS:
             JOBS[job_id]["status"] = "error"
             JOBS[job_id]["error"] = error
+
+
+def set_email_status(job_id: str, ok: bool, detail: str):
+    with _LOCK:
+        if job_id in JOBS:
+            JOBS[job_id]["email_sent"] = ok
+            JOBS[job_id]["email_detail"] = detail
 
 
 def _cleanup_old_locked():
