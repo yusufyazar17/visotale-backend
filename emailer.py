@@ -47,9 +47,13 @@ def _build_html(preview_url: str, painting_label: str, discount: dict | None) ->
     """
 
 
-def send_preview_email(to_email: str, preview_url: str, painting_label: str, discount: dict | None) -> bool:
+def send_preview_email(to_email: str, preview_url: str, painting_label: str, discount: dict | None):
+    """(ok: bool, detail: str) döner. detail hata mesajı ya da 'sent' olur —
+    sessizce yutmuyoruz, Railway loglarına da yazıyoruz ki 'neden gitmedi'
+    sorusuna cevap bulabilelim."""
     if not RESEND_API_KEY:
-        return False
+        print("[emailer] RESEND_API_KEY tanımlı değil — mail atlanıyor.")
+        return False, "RESEND_API_KEY eksik"
 
     payload = {
         "from": RESEND_FROM,
@@ -61,9 +65,14 @@ def send_preview_email(to_email: str, preview_url: str, painting_label: str, dis
 
     try:
         r = requests.post(RESEND_API_URL, json=payload, headers=headers, timeout=10)
-        return r.ok
-    except requests.RequestException:
-        return False
+        if not r.ok:
+            print(f"[emailer] Resend hata döndü ({r.status_code}): {r.text[:300]}")
+            return False, f"Resend {r.status_code}: {r.text[:200]}"
+        print(f"[emailer] Mail gönderildi: {to_email}")
+        return True, "sent"
+    except requests.RequestException as e:
+        print(f"[emailer] Resend'e istek atılamadı: {e}")
+        return False, str(e)
 
 
 def _build_failure_html(discount: dict | None) -> str:
@@ -97,9 +106,10 @@ def _build_failure_html(discount: dict | None) -> str:
     """
 
 
-def send_failure_email(to_email: str, discount: dict | None) -> bool:
+def send_failure_email(to_email: str, discount: dict | None):
     if not RESEND_API_KEY:
-        return False
+        print("[emailer] RESEND_API_KEY tanımlı değil — mail atlanıyor.")
+        return False, "RESEND_API_KEY eksik"
 
     payload = {
         "from": RESEND_FROM,
@@ -111,6 +121,11 @@ def send_failure_email(to_email: str, discount: dict | None) -> bool:
 
     try:
         r = requests.post(RESEND_API_URL, json=payload, headers=headers, timeout=10)
-        return r.ok
-    except requests.RequestException:
-        return False
+        if not r.ok:
+            print(f"[emailer] Resend hata döndü ({r.status_code}): {r.text[:300]}")
+            return False, f"Resend {r.status_code}: {r.text[:200]}"
+        print(f"[emailer] Özür maili gönderildi: {to_email}")
+        return True, "sent"
+    except requests.RequestException as e:
+        print(f"[emailer] Resend'e istek atılamadı: {e}")
+        return False, str(e)
