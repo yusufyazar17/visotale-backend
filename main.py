@@ -318,27 +318,42 @@ def _generation_job_worker(job_id: str, raw_bytes: bytes, painting_key: str, pai
     t0 = time.time()
     try:
         result = _run_pipeline(raw_bytes, painting_key, painting, FAL_QUEUE_MAX_WAIT_S_BACKGROUND)
-        jobs.set_job_done(job_id, result)
+        jobs.set_job_done(job_id, result)  # üretim başarılı — job durumu artık kesin "done"
 
         elapsed = time.time() - t0
         if email and elapsed > FAST_PATH_THRESHOLD_S:
-            discount = shopify_discount.create_one_time_discount(email)
-            emailer.send_preview_email(
-                to_email=email,
-                preview_url=result["preview_url"],
-                painting_label=painting.get("label", "Tablon"),
-                discount=discount,
-            )
+            # Mail gönderimi ayrı bir try/except'te — burada bir şey patlarsa
+            # az önce "done" olarak işaretlediğimiz job'ı asla "error"a çevirmesin.
+            try:
+                discount = shopify_discount.create_one_time_discount(email)
+                ok, detail = emailer.send_preview_email(
+                    to_email=email,
+                    preview_url=result["preview_url"],
+                    painting_label=painting.get("label", "Tablon"),
+                    discount=discount,
+                )
+                jobs.set_email_status(job_id, ok, detail)
+            except Exception as email_exc:
+                print(f"[job {job_id}] Mail gönderirken beklenmedik hata: {email_exc}")
+                jobs.set_email_status(job_id, False, f"Beklenmedik hata: {email_exc}")
     except HTTPException as exc:
         jobs.set_job_error(job_id, exc.detail)
         if email:
-            discount = shopify_discount.create_one_time_discount(email)
-            emailer.send_failure_email(to_email=email, discount=discount)
+            try:
+                discount = shopify_discount.create_one_time_discount(email)
+                ok, detail = emailer.send_failure_email(to_email=email, discount=discount)
+                jobs.set_email_status(job_id, ok, detail)
+            except Exception as email_exc:
+                print(f"[job {job_id}] Özür maili gönderirken hata: {email_exc}")
     except Exception as exc:
         jobs.set_job_error(job_id, f"Beklenmedik hata: {exc}")
         if email:
-            discount = shopify_discount.create_one_time_discount(email)
-            emailer.send_failure_email(to_email=email, discount=discount)
+            try:
+                discount = shopify_discount.create_one_time_discount(email)
+                ok, detail = emailer.send_failure_email(to_email=email, discount=discount)
+                jobs.set_email_status(job_id, ok, detail)
+            except Exception as email_exc:
+                print(f"[job {job_id}] Özür maili gönderirken hata: {email_exc}")
 
 
 @app.post("/create-preview-job")
@@ -375,6 +390,8 @@ async def job_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="İş bulunamadı.")
 
+    email_info = {"email_sent": job.get("email_sent"), "email_detail": job.get("email_detail")}
+
     if job["status"] == "done":
         result = job["result"]
         return JSONResponse({
@@ -387,10 +404,11 @@ async def job_status(job_id: str):
                 "raw_result_url": result["raw_result_url"],
                 "timings_s": result["timings_s"],
             },
+            **email_info,
         })
     if job["status"] == "error":
-        return JSONResponse({"ok": False, "status": "error", "error": job["error"]})
-    return JSONResponse({"ok": True, "status": "pending"})
+        return JSONResponse({"ok": False, "status": "error", "error": job["error"], **email_info})
+    return JSONResponse({"ok": True, "status": "pending", **email_info})
 
 
 @app.exception_handler(HTTPException)
