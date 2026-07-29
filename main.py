@@ -18,6 +18,7 @@ Eski main.py'nin bilinen hataları burada düzeltildi:
 
 import base64
 import os
+import threading
 import time
 
 import requests
@@ -28,6 +29,9 @@ from fastapi.responses import JSONResponse
 from image_prep import prepare_conditioning_image, to_data_uri
 from paintings import get_painting
 from watermark import apply_preview_treatment
+import jobs
+import emailer
+import shopify_discount
 
 # ---------------------------------------------------------------------------
 # Ayarlar (ortam değişkenlerinden)
@@ -209,13 +213,12 @@ def _upload_to_cloudinary(image_bytes: bytes, filename: str) -> str:
 # ---------------------------------------------------------------------------
 # Endpoint
 # ---------------------------------------------------------------------------
-@app.post("/create-preview")
-async def create_preview(
-    painting_key: str = Form(...),
-    strength: str = Form("orta"),
-    image_url: str | None = Form(None),
-    file: UploadFile | None = File(None),
-):
+def _run_pipeline(raw_bytes: bytes, painting_key: str, painting: dict):
+    """
+    Ortak üretim hattı: hem senkron /create-preview hem de arka plan
+    job worker'ı bunu kullanır. Başarılı olursa dict döner, hata
+    durumunda HTTPException fırlatır (çağıran taraf yakalar).
+    """
     t0 = time.time()
     timings = {}
     conditioning_url = None
@@ -224,35 +227,22 @@ async def create_preview(
         timings[label] = round(time.time() - since, 2)
         return time.time()
 
-    painting = get_painting(painting_key, strength)
-    if not painting:
-        raise HTTPException(status_code=400, detail="Geçersiz tablo seçimi.")
-
     try:
-        # 1) kaynak fotoğrafı al
         t = time.time()
-        raw_bytes = _fetch_source_bytes(file, image_url)
-        t = mark("1_kaynagi_al", t)
-
-        # 2) yüz(ler)i bul, kare kırp, gri+kontrast conditioning görseli üret
         conditioning_img = prepare_conditioning_image(raw_bytes)
         conditioning_data_uri = to_data_uri(conditioning_img)
         t = mark("2_yuz_tespit_hazirlik", t)
 
-        # 2b) conditioning görselini de Cloudinary'e yükle — inceleyebilmek için
         from io import BytesIO
         cond_buf = BytesIO()
         conditioning_img.save(cond_buf, format="JPEG", quality=90)
         conditioning_url = _upload_to_cloudinary(cond_buf.getvalue(), f"{painting_key}-conditioning.jpg")
         t = mark("2b_conditioning_yukle", t)
 
-        # 3) illusion-diffusion çağrısı (tablo başına ayarlanmış prompt/negatif/scale)
         result_url = _call_illusion_diffusion(conditioning_data_uri, painting, timings)
-        t = time.time()  # _call_illusion_diffusion kendi iç zamanlarını timings'e yazdı
+        t = time.time()
 
-        # 4) sonucu indir, önizleme muamelesi uygula (küçült + filigran)
         from PIL import Image
-
         result_bytes = _download_image_bytes(result_url)
         t = mark("4a_sonucu_indir", t)
 
@@ -264,38 +254,136 @@ async def create_preview(
         preview_img.save(buf, format="JPEG", quality=88)
         preview_bytes = buf.getvalue()
 
-        # 5) Cloudinary'e yükle, linki döndür
         preview_url = _upload_to_cloudinary(preview_bytes, f"{painting_key}-preview.jpg")
         t = mark("5_preview_yukle", t)
 
         elapsed = round(time.time() - t0, 1)
+        return {
+            "preview_url": preview_url,
+            "raw_result_url": result_url,
+            "conditioning_url": conditioning_url,
+            "timings_s": timings,
+            "elapsed_s": elapsed,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:  # beklenmedik hata — yine de düzgün bir mesajla geri dön
+        raise HTTPException(status_code=500, detail=f"Beklenmedik hata: {exc}")
+
+
+@app.post("/create-preview")
+async def create_preview(
+    painting_key: str = Form(...),
+    strength: str = Form("orta"),
+    image_url: str | None = Form(None),
+    file: UploadFile | None = File(None),
+):
+    t0 = time.time()
+
+    painting = get_painting(painting_key, strength)
+    if not painting:
+        raise HTTPException(status_code=400, detail="Geçersiz tablo seçimi.")
+
+    raw_bytes = _fetch_source_bytes(file, image_url)
+
+    try:
+        result = _run_pipeline(raw_bytes, painting_key, painting)
         return JSONResponse({
             "ok": True,
-            "preview_url": preview_url,
-            "elapsed_s": elapsed,
+            "preview_url": result["preview_url"],
+            "elapsed_s": result["elapsed_s"],
             "debug": {
-                "conditioning_url": conditioning_url,   # 2. adımın çıktısı
-                "raw_result_url": result_url,           # 3. adımın çıktısı (fal'ın ham sonucu, filigransız)
-                "timings_s": timings,
+                "conditioning_url": result["conditioning_url"],
+                "raw_result_url": result["raw_result_url"],
+                "timings_s": result["timings_s"],
             },
         })
-
     except HTTPException as exc:
-        # Hata olsa bile o ana kadar ölçülen süreleri ve varsa conditioning
-        # görselini geri döndür — "nerede göreceğim" sorusunun cevabı burada.
         elapsed = round(time.time() - t0, 1)
         return JSONResponse(
             status_code=exc.status_code,
-            content={
-                "ok": False,
-                "error": exc.detail,
-                "elapsed_s": elapsed,
-                "debug": {
-                    "conditioning_url": conditioning_url,
-                    "timings_s": timings,
-                },
-            },
+            content={"ok": False, "error": exc.detail, "elapsed_s": elapsed},
         )
+
+
+# ---------------------------------------------------------------------------
+# Job tabanlı akış — "Önizleme İste": kısa süre canlı denenir, uzarsa
+# arka planda devam edip sonucu e-posta ile gönderir.
+# ---------------------------------------------------------------------------
+FAST_PATH_THRESHOLD_S = 22  # bu sürenin üzerinde biterse "geç kaldı" sayılır, mail atılır
+
+
+def _generation_job_worker(job_id: str, raw_bytes: bytes, painting_key: str, painting: dict, email: str | None):
+    t0 = time.time()
+    try:
+        result = _run_pipeline(raw_bytes, painting_key, painting)
+        jobs.set_job_done(job_id, result)
+
+        elapsed = time.time() - t0
+        if email and elapsed > FAST_PATH_THRESHOLD_S:
+            discount = shopify_discount.create_one_time_discount(email)
+            emailer.send_preview_email(
+                to_email=email,
+                preview_url=result["preview_url"],
+                painting_label=painting.get("label", "Tablon"),
+                discount=discount,
+            )
+    except HTTPException as exc:
+        jobs.set_job_error(job_id, exc.detail)
+    except Exception as exc:
+        jobs.set_job_error(job_id, f"Beklenmedik hata: {exc}")
+
+
+@app.post("/create-preview-job")
+async def create_preview_job(
+    painting_key: str = Form(...),
+    strength: str = Form("orta"),
+    email: str | None = Form(None),
+    image_url: str | None = Form(None),
+    file: UploadFile | None = File(None),
+):
+    painting = get_painting(painting_key, strength)
+    if not painting:
+        raise HTTPException(status_code=400, detail="Geçersiz tablo seçimi.")
+
+    # dosyayı burada, istek hâlâ açıkken okumak zorundayız —
+    # arka plan thread'i başladığında UploadFile artık kapanmış olabilir
+    raw_bytes = _fetch_source_bytes(file, image_url)
+
+    job_id = jobs.create_job({"painting_key": painting_key, "email": email})
+
+    thread = threading.Thread(
+        target=_generation_job_worker,
+        args=(job_id, raw_bytes, painting_key, painting, email),
+        daemon=True,
+    )
+    thread.start()
+
+    return JSONResponse({"ok": True, "job_id": job_id})
+
+
+@app.get("/job-status/{job_id}")
+async def job_status(job_id: str):
+    job = jobs.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="İş bulunamadı.")
+
+    if job["status"] == "done":
+        result = job["result"]
+        return JSONResponse({
+            "ok": True,
+            "status": "done",
+            "preview_url": result["preview_url"],
+            "elapsed_s": result["elapsed_s"],
+            "debug": {
+                "conditioning_url": result["conditioning_url"],
+                "raw_result_url": result["raw_result_url"],
+                "timings_s": result["timings_s"],
+            },
+        })
+    if job["status"] == "error":
+        return JSONResponse({"ok": False, "status": "error", "error": job["error"]})
+    return JSONResponse({"ok": True, "status": "pending"})
 
 
 @app.exception_handler(HTTPException)
