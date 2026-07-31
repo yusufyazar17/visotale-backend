@@ -13,11 +13,22 @@ import requests
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM = os.environ.get("RESEND_FROM", "Visotale <no-reply@visotale.com>")
 SITE_URL = os.environ.get("SITE_URL", "https://visotale.com")
+PRODUCT_URL = os.environ.get("PRODUCT_URL", SITE_URL)  # ürün sayfasının tam linki — ayarlanmazsa ana sayfaya düşer
+
+
+def _resume_link(preview_url: str, painting_key: str) -> str:
+    """Mail'deki CTA linkine üretilen görseli ve tabloyu gömer — wizard bunu
+    algılayıp doğrudan sepet adımına atlar, müşteri en baştan başlamak
+    zorunda kalmaz."""
+    from urllib.parse import quote
+
+    sep = "&" if "?" in PRODUCT_URL else "?"
+    return f"{PRODUCT_URL}{sep}vt_preview={quote(preview_url, safe='')}&vt_tablo={quote(painting_key, safe='')}"
 
 RESEND_API_URL = "https://api.resend.com/emails"
 
 
-def _build_html(preview_url: str, painting_label: str, discount: dict | None) -> str:
+def _build_html(preview_url: str, painting_label: str, painting_key: str, discount: dict | None) -> str:
     coupon_block = ""
     if discount:
         coupon_block = f"""
@@ -40,14 +51,14 @@ def _build_html(preview_url: str, painting_label: str, discount: dict | None) ->
       <p style="text-align:center;font-size:12px;color:#a0a0a0;margin:0 0 28px;">Bu bir ön önizlemedir — siparişin sonrası 4K kalitesinde, filigransız üretilir.</p>
       {coupon_block}
       <div style="text-align:center;margin-top:28px;">
-        <a href="{SITE_URL}" style="display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;font-size:14px;">Siparişini tamamla</a>
+        <a href="{_resume_link(preview_url, painting_key)}" style="display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;font-size:14px;">Siparişini tamamla</a>
       </div>
       <p style="text-align:center;font-size:11px;color:#a0a0a0;margin-top:32px;">Visotale · Bu e-postayı bir önizleme talebiniz olduğu için aldınız.</p>
     </div>
     """
 
 
-def send_preview_email(to_email: str, preview_url: str, painting_label: str, discount: dict | None):
+def send_preview_email(to_email: str, preview_url: str, painting_label: str, painting_key: str, discount: dict | None):
     """(ok: bool, detail: str) döner. detail hata mesajı ya da 'sent' olur —
     sessizce yutmuyoruz, Railway loglarına da yazıyoruz ki 'neden gitmedi'
     sorusuna cevap bulabilelim."""
@@ -59,7 +70,7 @@ def send_preview_email(to_email: str, preview_url: str, painting_label: str, dis
         "from": RESEND_FROM,
         "to": [to_email],
         "subject": f"Tablon hazır — {painting_label} 🎨",
-        "html": _build_html(preview_url, painting_label, discount),
+        "html": _build_html(preview_url, painting_label, painting_key, discount),
     }
     headers = {"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"}
 
