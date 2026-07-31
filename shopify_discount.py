@@ -41,8 +41,10 @@ def create_one_time_discount(email: str) -> dict | None:
     Başarılı olursa {"code": "...", "expires_at": "..."} döndürür.
     Yapılandırma eksikse ya da Shopify hata verirse None döner — bu,
     e-posta gönderimini engellemez, sadece kupon linki olmadan gider.
+    Hata sebebi Railway loglarına yazılır ("neden gitmedi" görünür olsun diye).
     """
     if not SHOPIFY_STORE_DOMAIN or not SHOPIFY_ADMIN_TOKEN:
+        print("[shopify_discount] SHOPIFY_STORE_DOMAIN veya SHOPIFY_ADMIN_TOKEN eksik — kupon atlanıyor.")
         return None
 
     code = f"VISOTALE20-{_random_suffix()}"
@@ -74,6 +76,7 @@ def create_one_time_discount(email: str) -> dict | None:
             timeout=10,
         )
         if not r.ok:
+            print(f"[shopify_discount] price_rules.json hata döndü ({r.status_code}): {r.text[:400]}")
             return None
         price_rule_id = r.json()["price_rule"]["id"]
 
@@ -84,8 +87,11 @@ def create_one_time_discount(email: str) -> dict | None:
             timeout=10,
         )
         if not r2.ok:
+            print(f"[shopify_discount] discount_codes.json hata döndü ({r2.status_code}): {r2.text[:400]}")
             return None
 
+        print(f"[shopify_discount] Kupon oluşturuldu: {code}")
         return {"code": code, "expires_at": ends_at}
-    except requests.RequestException:
+    except requests.RequestException as e:
+        print(f"[shopify_discount] Shopify'a istek atılamadı: {e}")
         return None
