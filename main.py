@@ -330,6 +330,7 @@ def _generation_job_worker(job_id: str, raw_bytes: bytes, painting_key: str, pai
                     to_email=email,
                     preview_url=result["preview_url"],
                     painting_label=painting.get("label", "Tablon"),
+                    painting_key=painting_key,
                     discount=discount,
                 )
                 jobs.set_email_status(job_id, ok, detail)
