@@ -15,6 +15,32 @@ RESEND_FROM = os.environ.get("RESEND_FROM", "Visotale <no-reply@visotale.com>")
 SITE_URL = os.environ.get("SITE_URL", "https://visotale.com")
 PRODUCT_URL = os.environ.get("PRODUCT_URL", SITE_URL)  # ürün sayfasının tam linki — ayarlanmazsa ana sayfaya düşer
 
+# Sosyal medya linkleri — boş bırakılırsa o ikon mailde hiç görünmez
+SOCIAL_INSTAGRAM_URL = os.environ.get("SOCIAL_INSTAGRAM_URL", "")
+SOCIAL_TIKTOK_URL = os.environ.get("SOCIAL_TIKTOK_URL", "")
+SOCIAL_PINTEREST_URL = os.environ.get("SOCIAL_PINTEREST_URL", "")
+
+# Footer'daki SVG ikonlarla aynı kaynak — ama mail istemcileri (özellikle
+# Outlook) SVG göstermez, bu yüzden Cloudinary'nin f_png dönüşümüyle PNG
+# olarak çekiyoruz.
+_ICON_BASE = "https://res.cloudinary.com/dfclxpzlo/image/upload/f_png/v1785034796"
+ICON_INSTAGRAM = f"{_ICON_BASE}/instagram_vtfbg0.svg"
+ICON_TIKTOK = f"{_ICON_BASE}/tiktok_gyfc0x.svg"
+ICON_PINTEREST = f"{_ICON_BASE}/pinterest_u8ou4b.svg"
+
+
+def _social_row() -> str:
+    icons = []
+    if SOCIAL_INSTAGRAM_URL:
+        icons.append(f'<a href="{SOCIAL_INSTAGRAM_URL}" style="margin:0 8px;"><img src="{ICON_INSTAGRAM}" width="22" height="22" alt="Instagram" style="display:inline-block;vertical-align:middle;"></a>')
+    if SOCIAL_TIKTOK_URL:
+        icons.append(f'<a href="{SOCIAL_TIKTOK_URL}" style="margin:0 8px;"><img src="{ICON_TIKTOK}" width="22" height="22" alt="TikTok" style="display:inline-block;vertical-align:middle;"></a>')
+    if SOCIAL_PINTEREST_URL:
+        icons.append(f'<a href="{SOCIAL_PINTEREST_URL}" style="margin:0 8px;"><img src="{ICON_PINTEREST}" width="22" height="22" alt="Pinterest" style="display:inline-block;vertical-align:middle;"></a>')
+    if not icons:
+        return ""
+    return f'<div style="text-align:center;margin-top:24px;">{"".join(icons)}</div>'
+
 
 def _resume_link(preview_url: str, painting_key: str) -> str:
     """Mail'deki CTA linkine üretilen görseli ve tabloyu gömer — wizard bunu
@@ -36,7 +62,7 @@ def _build_html(preview_url: str, painting_label: str, painting_key: str, discou
           <p style="margin:0 0 6px;font-size:13px;color:#8a857d;letter-spacing:.04em;text-transform:uppercase;">İlk siparişine özel</p>
           <p style="margin:0 0 14px;font-size:28px;font-weight:700;color:#1b3e28;letter-spacing:.02em;">%20 İNDİRİM</p>
           <p style="margin:0 0 4px;font-size:20px;font-weight:600;letter-spacing:.05em;background:#fff;display:inline-block;padding:10px 20px;border-radius:8px;border:1.5px dashed #225033;color:#1a1a1a;">{discount['code']}</p>
-          <p style="margin:14px 0 0;font-size:12px;color:#8a857d;">Bu kod tek kullanımlıktır ve 7 gün geçerlidir.</p>
+          <p style="margin:14px 0 0;font-size:12px;color:#b3403f;font-weight:600;">Sadece 24 saat geçerli — tek kullanımlık.</p>
         </div>
         """
 
@@ -46,14 +72,17 @@ def _build_html(preview_url: str, painting_label: str, painting_key: str, discou
         <span style="font-family:Georgia,serif;font-size:26px;font-weight:600;background:linear-gradient(135deg,#225033,#1b3e28);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">visot<em>a</em>le</span>
       </div>
       <h1 style="font-family:Georgia,serif;font-size:24px;font-weight:500;text-align:center;margin:0 0 8px;">Tablon hazır 🎨</h1>
-      <p style="text-align:center;color:#6b6b6b;font-size:14px;margin:0 0 28px;">{painting_label} — önizlemen aşağıda</p>
+      <p style="text-align:center;color:#6b6b6b;font-size:13.5px;line-height:1.6;margin:0 0 24px;">
+        Bu sadece bir önizleme — siparişinin sonrasında sana <strong style="color:#1a1a1a;">5 farklı örnek</strong> daha ileteceğiz.
+      </p>
       <img src="{preview_url}" alt="Tablo önizlemesi" style="width:100%;border-radius:14px;display:block;margin-bottom:8px;">
-      <p style="text-align:center;font-size:12px;color:#a0a0a0;margin:0 0 28px;">Bu bir ön önizlemedir — siparişin sonrası 4K kalitesinde, filigransız üretilir.</p>
+      <p style="text-align:center;font-size:12px;color:#a0a0a0;margin:0 0 28px;">{painting_label} · Siparişin sonrası 4K kalitesinde, filigransız üretilir.</p>
       {coupon_block}
       <div style="text-align:center;margin-top:28px;">
         <a href="{_resume_link(preview_url, painting_key)}" style="display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;font-size:14px;">Siparişini tamamla</a>
       </div>
-      <p style="text-align:center;font-size:11px;color:#a0a0a0;margin-top:32px;">Visotale · Bu e-postayı bir önizleme talebiniz olduğu için aldınız.</p>
+      {_social_row()}
+      <p style="text-align:center;font-size:11px;color:#a0a0a0;margin-top:20px;">Visotale · Bu e-postayı bir önizleme talebiniz olduğu için aldınız.</p>
     </div>
     """
 
@@ -94,7 +123,7 @@ def _build_failure_html(discount: dict | None) -> str:
           <p style="margin:0 0 6px;font-size:13px;color:#8a857d;letter-spacing:.04em;text-transform:uppercase;">Özür kuponun</p>
           <p style="margin:0 0 14px;font-size:28px;font-weight:700;color:#1b3e28;letter-spacing:.02em;">%20 İNDİRİM</p>
           <p style="margin:0 0 4px;font-size:20px;font-weight:600;letter-spacing:.05em;background:#fff;display:inline-block;padding:10px 20px;border-radius:8px;border:1.5px dashed #225033;color:#1a1a1a;">{discount['code']}</p>
-          <p style="margin:14px 0 0;font-size:12px;color:#8a857d;">Bu kod tek kullanımlıktır ve 7 gün geçerlidir.</p>
+          <p style="margin:14px 0 0;font-size:12px;color:#b3403f;font-weight:600;">Sadece 24 saat geçerli — tek kullanımlık.</p>
         </div>
         """
 
@@ -112,7 +141,8 @@ def _build_failure_html(discount: dict | None) -> str:
       <div style="text-align:center;margin-top:28px;">
         <a href="{SITE_URL}" style="display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;font-size:14px;">Tekrar dene</a>
       </div>
-      <p style="text-align:center;font-size:11px;color:#a0a0a0;margin-top:32px;">Visotale · Bu e-postayı bir önizleme talebiniz olduğu için aldınız.</p>
+      {_social_row()}
+      <p style="text-align:center;font-size:11px;color:#a0a0a0;margin-top:20px;">Visotale · Bu e-postayı bir önizleme talebiniz olduğu için aldınız.</p>
     </div>
     """
 
