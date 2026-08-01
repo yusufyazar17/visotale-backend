@@ -22,7 +22,7 @@ SHOPIFY_STORE_DOMAIN = os.environ.get("SHOPIFY_STORE_DOMAIN", "")  # ör. visota
 SHOPIFY_API_VERSION = os.environ.get("SHOPIFY_API_VERSION", "2024-10")
 
 DISCOUNT_PERCENT = 20.0
-VALID_DAYS = 7
+VALID_DAYS = 1  # 24 saat — mail metnindeki aciliyet mesajıyla birebir eşleşmeli
 
 MUTATION = """
 mutation discountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
