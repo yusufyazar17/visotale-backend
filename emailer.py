@@ -10,6 +10,8 @@ import os
 
 import requests
 
+import email_render
+
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM = os.environ.get("RESEND_FROM", "Visotale <no-reply@visotale.com>")
 SITE_URL = os.environ.get("SITE_URL", "https://visotale.com")
@@ -87,6 +89,19 @@ def _build_html(preview_url: str, painting_label: str, painting_key: str, discou
     """
 
 
+def _build_composed_html(image_url: str, resume_link: str) -> str:
+    """Yeni tasarım: tüm görsel (arka plan + tablo + çift + metinler + kupon)
+    sunucuda TEK bir görselde birleştirilmiş. Mail HTML'i bu yüzden çok basit —
+    tek görsel, tamamı tıklanabilir link."""
+    return f"""
+    <div style="max-width:600px;margin:0 auto;">
+      <a href="{resume_link}" style="display:block;text-decoration:none;">
+        <img src="{image_url}" width="600" alt="Tablon hazır — Visotale" style="width:100%;display:block;border:0;">
+      </a>
+    </div>
+    """
+
+
 def send_preview_email(to_email: str, preview_url: str, painting_label: str, painting_key: str, discount: dict | None):
     """(ok: bool, detail: str) döner. detail hata mesajı ya da 'sent' olur —
     sessizce yutmuyoruz, Railway loglarına da yazıyoruz ki 'neden gitmedi'
@@ -95,11 +110,32 @@ def send_preview_email(to_email: str, preview_url: str, painting_label: str, pai
         print("[emailer] RESEND_API_KEY tanımlı değil — mail atlanıyor.")
         return False, "RESEND_API_KEY eksik"
 
+    html = None
+    if discount:
+        # Yeni tasarım: kupon varsa tam birleşik görseli dene. Herhangi bir
+        # adımda sorun çıkarsa (indirme/birleştirme/yükleme) sessizce eski
+        # basit şablona düşüyoruz — mail gönderimi asla bunun yüzünden durmaz.
+        try:
+            r = requests.get(preview_url, timeout=15)
+            r.raise_for_status()
+            composed_bytes = email_render.compose_email_image(r.content, discount["code"])
+            composed_url = email_render.upload_composed_image(composed_bytes)
+            if composed_url:
+                html = _build_composed_html(composed_url, _resume_link(preview_url, painting_key))
+                print("[emailer] Birleşik mail görseli oluşturuldu.")
+            else:
+                print("[emailer] Birleşik görsel yüklenemedi — eski şablona düşülüyor.")
+        except Exception as e:
+            print(f"[emailer] Birleşik görsel oluşturulamadı ({e}) — eski şablona düşülüyor.")
+
+    if html is None:
+        html = _build_html(preview_url, painting_label, painting_key, discount)
+
     payload = {
         "from": RESEND_FROM,
         "to": [to_email],
         "subject": f"Tablon hazır — {painting_label} 🎨",
-        "html": _build_html(preview_url, painting_label, painting_key, discount),
+        "html": html,
     }
     headers = {"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"}
 
