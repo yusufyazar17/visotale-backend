@@ -103,17 +103,19 @@ def _build_html(photo_url: str, painting_label: str, resume_link: str, discount:
     return f"""
     <div style="max-width:600px;margin:0 auto;background:#173722;font-family:'DM Sans',Helvetica,Arial,sans-serif;">
 
-      <div style="padding:32px 24px 0;text-align:center;">
-        <img src="{LOGO_TOP}" width="160" alt="Visotale" style="margin-bottom:24px;border:0;">
-        <h1 style="font-family:Georgia,serif;color:#ffffff;font-size:38px;font-weight:400;margin:0;line-height:1.15;">ÖNİZLEMEN<br>HAZIR</h1>
-        <p style="color:#ffffff;font-size:14.5px;line-height:1.6;margin:16px 0 0;">
-          bu sadece bir önizleme, siparişin sonrasında sana <strong style="color:#5EC37E;">5 farklı</strong> örnek daha ileteceğiz.
-        </p>
-      </div>
-
-      <div style="padding:28px 0 0;">
-        <img src="{photo_url}" width="600" alt="{painting_label}" style="width:100%;display:block;border:0;">
-      </div>
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"
+             background="{photo_url}"
+             style="width:100%;height:1142px;background-image:url('{photo_url}');background-size:cover;background-position:top center;background-repeat:no-repeat;">
+        <tr>
+          <td height="1142" valign="top" style="height:1142px;padding:32px 24px 0;text-align:center;">
+            <img src="{LOGO_TOP}" width="160" alt="Visotale" style="margin-bottom:24px;border:0;">
+            <h1 style="font-family:Georgia,serif;color:#ffffff;font-size:38px;font-weight:400;margin:0;line-height:1.15;text-shadow:0 2px 12px rgba(0,0,0,.35);">ÖNİZLEMEN<br>HAZIR</h1>
+            <p style="color:#ffffff;font-size:14.5px;line-height:1.6;margin:16px 0 0;text-shadow:0 1px 6px rgba(0,0,0,.35);">
+              bu sadece bir önizleme, siparişin sonrasında sana <strong style="color:#5EC37E;">5 farklı</strong> örnek daha ileteceğiz.
+            </p>
+          </td>
+        </tr>
+      </table>
 
       <div style="padding:40px 24px;text-align:center;">
         {coupon_section}
