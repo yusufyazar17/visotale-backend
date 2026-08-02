@@ -68,7 +68,7 @@ def create_one_time_discount(email: str) -> dict | None:
         print("[shopify_discount] Geçerli bir Admin API token alınamadı — kupon atlanıyor.")
         return None
 
-    code = f"VISOTALE20-{_random_suffix()}"
+    code = _random_suffix()
     now = time.gmtime()
     ends_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + VALID_DAYS * 86400))
     starts_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", now)
