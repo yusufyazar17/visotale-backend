@@ -142,8 +142,11 @@ PAINTINGS = {
             "green leaves, the bouquet filling the upper two thirds of the "
             "canvas, standing in one ornate footed gilded bronze urn with "
             "engraved detailing and warm specular highlights, the urn resting on "
-            "a dark veined black marble table, the entire background is a plain "
-            "black velvet drape with soft folds, no other objects, single "
+            "a dark veined black marble table, the entire background is one "
+            "seamless smooth hand-painted plaster wall with a soft gradient "
+            "from deep warm umber at the edges to a gentle glowing olive-bronze "
+            "behind the flowers, classical baroque atmosphere, empty wall, no "
+            "other objects, single "
             "dramatic light from the upper left, strong chiaroscuro, thick "
             "textured oil paint with visible brushwork, masterpiece, museum "
             "quality wall art, gallery lighting, 8k highly detailed"
@@ -151,7 +154,7 @@ PAINTINGS = {
         "negative_prompt": COMMON_NEGATIVE + (
             ", shape in the background, pattern in the background, silhouette "
             "in the background, face in the background, figure in the "
-            "background, window, wall, room, extra vase, multiple vases"
+            "background, cabinet, cupboard, shelf, furniture, door, picture frame, painting on the wall, curtain, drapery, folds, wallpaper pattern, extra vase, multiple vases"
         ),
         "conditioning_scale": 1.15,
         "guidance_scale": 7.5,
