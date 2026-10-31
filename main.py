@@ -230,8 +230,7 @@ def _run_pipeline(raw_bytes: bytes, painting_key: str, painting: dict, max_wait_
 
     try:
         t = time.time()
-        conditioning_img = prepare_conditioning_image(raw_bytes)
-        conditioning_data_uri = to_data_uri(conditioning_img)
+        conditioning_img = prepare_conditioning_image(raw_bytes, painting.get("conditioning_layout"), painting.get("layout_params"))        conditioning_data_uri = to_data_uri(conditioning_img)
         t = mark("2_yuz_tespit_hazirlik", t)
 
         from io import BytesIO
