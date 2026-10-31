@@ -16,13 +16,13 @@ düşer — bu bir hata değil, güvenli bir yedektir.
 import io
 import cv2
 import numpy as np
-from PIL import Image, ImageOps, ImageEnhance
+from PIL import Image, ImageDraw, ImageFilter, ImageOps, ImageEnhance
 
 FACE_CASCADE = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
 
-CONDITIONING_SIZE = 768  # 1024'ten düşürüldü — daha hızlı üretim, kalite farkı gözle görülmüyor
+CONDITIONING_SIZE = 1024
 
 
 def _detect_faces(cv_img_gray):
@@ -59,8 +59,8 @@ def _bbox_from_faces(faces, img_w, img_h):
     return x0, y0, x1, y1
 
 
-def prepare_conditioning_image(raw_bytes: bytes) -> Image.Image:
-    """raw_bytes -> 1024x1024 gri/yüksek-kontrast conditioning görseli (PIL Image, RGB)."""
+def _gray_square(raw_bytes: bytes) -> Image.Image:
+    """raw_bytes -> 1024x1024 gri/yüksek-kontrast kare (PIL Image, RGB). Yüz(ler) ortada."""
     img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
     W, H = img.size
 
@@ -89,6 +89,83 @@ def prepare_conditioning_image(raw_bytes: bytes) -> Image.Image:
     gwork = gwork.resize((CONDITIONING_SIZE, CONDITIONING_SIZE), Image.LANCZOS)
 
     return gwork.convert("RGB")
+
+
+# ---------------------------------------------------------------------------
+# Yerleşim: silüet SADECE çiçek bölgesine konur, arka plan/vazo/masa sade kalır.
+# ControlNet, girdideki parlaklık desenini TÜM tabloya uyguladığı için, silüeti
+# yalnızca elips içine koyup dışını koyu tutmak, arka planda silüet çıkmasını önler.
+# ---------------------------------------------------------------------------
+LAYOUT_BOUQUET = {
+    "cx": 0.50,       # elips merkezi (genişliğin oranı)
+    "cy": 0.38,       # elips merkezi (yüksekliğin oranı) — buket üst 2/3'te
+    "w": 0.86,        # elips genişliği
+    "h": 0.66,        # elips yüksekliği
+    "feather": 0.10,  # kenar yumuşatma (küçük kenarın oranı)
+    "bg": 24,         # elips dışının parlaklığı (0 siyah - 255 beyaz)
+}
+
+
+def _clamp(v, lo, hi, default):
+    try:
+        return max(lo, min(hi, float(v)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _sanitize_layout(params: dict | None) -> dict:
+    p = dict(LAYOUT_BOUQUET)
+    for k, v in (params or {}).items():
+        if k in p:
+            p[k] = v
+    return {
+        "cx": _clamp(p["cx"], 0.2, 0.8, LAYOUT_BOUQUET["cx"]),
+        "cy": _clamp(p["cy"], 0.2, 0.8, LAYOUT_BOUQUET["cy"]),
+        "w": _clamp(p["w"], 0.3, 1.0, LAYOUT_BOUQUET["w"]),
+        "h": _clamp(p["h"], 0.3, 1.0, LAYOUT_BOUQUET["h"]),
+        "feather": _clamp(p["feather"], 0.0, 0.4, LAYOUT_BOUQUET["feather"]),
+        "bg": int(_clamp(p["bg"], 0, 120, LAYOUT_BOUQUET["bg"])),
+    }
+
+
+def _compose_bouquet(gray_square: Image.Image, params: dict | None) -> Image.Image:
+    p = _sanitize_layout(params)
+    S = CONDITIONING_SIZE
+    w = int(S * p["w"])
+    h = int(S * p["h"])
+    cx = int(S * p["cx"])
+    cy = int(S * p["cy"])
+    side = max(w, h)
+
+    face = ImageOps.grayscale(gray_square).resize((side, side), Image.LANCZOS)
+
+    base = Image.new("L", (S, S), p["bg"])
+    layer = Image.new("L", (S, S), p["bg"])
+    layer.paste(face, (cx - side // 2, cy - side // 2))
+
+    mask = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(mask).ellipse(
+        [cx - w // 2, cy - h // 2, cx + w // 2, cy + h // 2], fill=255
+    )
+    radius = max(0.1, min(w, h) * p["feather"])
+    mask = mask.filter(ImageFilter.GaussianBlur(radius))
+
+    out = Image.composite(layer, base, mask)
+    return out.convert("RGB")
+
+
+def prepare_conditioning_image(raw_bytes: bytes, layout: str | None = None,
+                               layout_params: dict | None = None) -> Image.Image:
+    """
+    raw_bytes -> 1024x1024 conditioning görseli (PIL Image, RGB).
+
+    layout=None      : eski davranış (gri kare, tüm tuvali kaplar)
+    layout="bouquet" : silüet yalnızca çiçek elipsinde, dışı koyu
+    """
+    gray = _gray_square(raw_bytes)
+    if layout == "bouquet":
+        return _compose_bouquet(gray, layout_params)
+    return gray
 
 
 def to_data_uri(img: Image.Image, fmt: str = "JPEG", quality: int = 92) -> str:
