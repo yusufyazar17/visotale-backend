@@ -422,3 +422,6 @@ async def http_exception_handler(request, exc: HTTPException):
 @app.get("/health")
 async def health():
     return {"ok": True}
+
+import test_page
+test_page.register(app, _run_pipeline, _fetch_source_bytes)
