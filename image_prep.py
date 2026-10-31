@@ -16,7 +16,7 @@ düşer — bu bir hata değil, güvenli bir yedektir.
 import io
 import cv2
 import numpy as np
-from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps, ImageEnhance
+from PIL import Image, ImageDraw, ImageFilter, ImageOps, ImageEnhance
 
 FACE_CASCADE = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
@@ -30,7 +30,7 @@ def _detect_faces(cv_img_gray):
     return faces
 
 
-def _bbox_from_faces(faces, img_w, img_h):
+def _bbox_from_faces(faces, img_w, img_h, pad_top=0.6):
     xs = [x for (x, y, w, h) in faces]
     ys = [y for (x, y, w, h) in faces]
     xe = [x + w for (x, y, w, h) in faces]
@@ -39,7 +39,7 @@ def _bbox_from_faces(faces, img_w, img_h):
 
     # yüzlerin etrafına pay bırak (saç, çene, omuz için)
     pad_x = int((x1 - x0) * 0.6)
-    pad_y_top = int((y1 - y0) * 0.6)
+    pad_y_top = int((y1 - y0) * pad_top)
     pad_y_bottom = int((y1 - y0) * 0.8)
     x0 -= pad_x
     x1 += pad_x
@@ -59,7 +59,7 @@ def _bbox_from_faces(faces, img_w, img_h):
     return x0, y0, x1, y1
 
 
-def _gray_square(raw_bytes: bytes) -> Image.Image:
+def _gray_square(raw_bytes: bytes, pad_top: float = 0.6) -> Image.Image:
     """raw_bytes -> 1024x1024 gri/yüksek-kontrast kare (PIL Image, RGB). Yüz(ler) ortada."""
     img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
     W, H = img.size
@@ -69,7 +69,7 @@ def _gray_square(raw_bytes: bytes) -> Image.Image:
     faces = _detect_faces(gray_cv)
 
     if len(faces) > 0:
-        x0, y0, x1, y1 = _bbox_from_faces(faces, W, H)
+        x0, y0, x1, y1 = _bbox_from_faces(faces, W, H, pad_top)
     else:
         # yedek: merkezi kare (hafifçe üstten, portre eğilimine uygun)
         side = int(min(W, H) * 0.9)
@@ -103,7 +103,10 @@ LAYOUT_BOUQUET = {
     "h": 0.66,        # elips yüksekliği
     "feather": 0.10,  # kenar yumuşatma (küçük kenarın oranı)
     "bg": 24,         # elips dışının parlaklığı (0 siyah - 255 beyaz)
-    "size": 0.66,     # portre karesinin tuvale oranı (0 = elipse otomatik sığdır)
+    "size": 0.68,     # portre karesinin tuvale oranı (0 = elipse otomatik sığdır)
+    "halo": 150,      # portre dışı, elips içi parlaklık (saç/kontrast kaybolmasın diye açık)
+    "dy": 0.02,       # portrenin elips merkezine göre dikey kayması (+ aşağı)
+    "pad_top": 1.0,   # baş üstü boşluğu (yüz yüksekliğinin katı)
 }
 
 
@@ -137,6 +140,9 @@ def _sanitize_layout(params: dict | None) -> dict:
         "feather": _clamp(p["feather"], 0.0, 0.4, LAYOUT_BOUQUET["feather"]),
         "bg": int(_clamp(p["bg"], 0, 120, LAYOUT_BOUQUET["bg"])),
         "size": _sanitize_size(p["size"]),
+        "halo": int(_clamp(p["halo"], 0, 255, LAYOUT_BOUQUET["halo"])),
+        "dy": _clamp(p["dy"], -0.15, 0.15, LAYOUT_BOUQUET["dy"]),
+        "pad_top": _clamp(p["pad_top"], 0.3, 1.6, LAYOUT_BOUQUET["pad_top"]),
     }
 
 
@@ -147,6 +153,7 @@ def _compose_bouquet(gray_square: Image.Image, params: dict | None) -> Image.Ima
     h = int(S * p["h"])
     cx = int(S * p["cx"])
     cy = int(S * p["cy"])
+    py = cy + int(S * p["dy"])  # portrenin dikey merkezi
     if p["size"] == 0:
         # elipse tam sığan en büyük kare: yarı kenar = 1 / sqrt(1/a^2 + 1/b^2)
         a, b = w / 2.0, h / 2.0
@@ -156,11 +163,22 @@ def _compose_bouquet(gray_square: Image.Image, params: dict | None) -> Image.Ima
 
     face = ImageOps.grayscale(gray_square).resize((side, side), Image.LANCZOS)
 
-    base = Image.new("L", (S, S), p["bg"])
-    layer = Image.new("L", (S, S), p["bg"])
-    layer.paste(face, (cx - side // 2, cy - side // 2))
+    # Portre, ELİPS İÇİNDE açık bir halkanın (halo) üstüne yerleşir.
+    # Böylece portrenin kenarı koyuya değil açığa erir: koyu saç, açık zeminle
+    # kontrastını kaybetmez ve baş silueti kesilmez.
+    halo_layer = Image.new("L", (S, S), p["halo"])
+    x0, y0 = cx - side // 2, py - side // 2
+    face_layer = Image.new("L", (S, S), p["halo"])
+    face_layer.paste(face, (x0, y0))
 
-    # 1) elips maskesi: silüetin çiçek bölgesinin dışına çıkmasını engeller
+    sq = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(sq).rounded_rectangle(
+        [x0, y0, x0 + side, y0 + side], radius=int(side * 0.30), fill=255
+    )
+    sq = sq.filter(ImageFilter.GaussianBlur(max(1.0, side * max(0.09, p["feather"] * 1.3))))
+    inner = Image.composite(face_layer, halo_layer, sq)
+
+    # Elips: silüetin ve açık halkanın çiçek bölgesinin dışına çıkmasını engeller.
     mask = Image.new("L", (S, S), 0)
     ImageDraw.Draw(mask).ellipse(
         [cx - w // 2, cy - h // 2, cx + w // 2, cy + h // 2], fill=255
@@ -168,18 +186,8 @@ def _compose_bouquet(gray_square: Image.Image, params: dict | None) -> Image.Ima
     radius = max(0.1, min(w, h) * p["feather"])
     mask = mask.filter(ImageFilter.GaussianBlur(radius))
 
-    # 2) portre karesinin kendi kenarları da yumuşar (sert dikdörtgen izi kalmasın):
-    #    yuvarlak köşeli kare + bulanıklık
-    sq = Image.new("L", (S, S), 0)
-    x0, y0 = cx - side // 2, cy - side // 2
-    ImageDraw.Draw(sq).rounded_rectangle(
-        [x0, y0, x0 + side, y0 + side], radius=int(side * 0.30), fill=255
-    )
-    sq = sq.filter(ImageFilter.GaussianBlur(max(1.0, side * max(0.09, p["feather"] * 1.3))))
-
-    mask = ImageChops.multiply(mask, sq)
-
-    out = Image.composite(layer, base, mask)
+    base = Image.new("L", (S, S), p["bg"])
+    out = Image.composite(inner, base, mask)
     return out.convert("RGB")
 
 
@@ -191,10 +199,10 @@ def prepare_conditioning_image(raw_bytes: bytes, layout: str | None = None,
     layout=None      : eski davranış (gri kare, tüm tuvali kaplar)
     layout="bouquet" : silüet yalnızca çiçek elipsinde, dışı koyu
     """
-    gray = _gray_square(raw_bytes)
     if layout == "bouquet":
-        return _compose_bouquet(gray, layout_params)
-    return gray
+        pad_top = _sanitize_layout(layout_params)["pad_top"]
+        return _compose_bouquet(_gray_square(raw_bytes, pad_top), layout_params)
+    return _gray_square(raw_bytes)
 
 
 def to_data_uri(img: Image.Image, fmt: str = "JPEG", quality: int = 92) -> str:
