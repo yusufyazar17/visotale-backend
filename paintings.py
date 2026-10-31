@@ -128,61 +128,38 @@ PAINTINGS = {
     },
 
     # ------------------------------------------------------------------
-    # YENİ STİLLER (test aşamasında — taslak prompt, sonuçlara göre ayarlanır)
+    # YENİ STİL (test aşamasında — sonuçlara göre ayarlanır)
+    # Diğer yeni stiller (Yılbaşı Ağacı, Ayçiçeği Salonu vb.) bu stil
+    # mükemmelleşince tek tek eklenecek.
     # ------------------------------------------------------------------
-    "yilbasi_agaci": {
-        "label": "Yılbaşı Ağacı",
-        "artist": "Yılbaşı özel",
-        "prompt": (
-            "Festive Christmas oil painting, a grand fir tree decorated with "
-            "hundreds of warm golden fairy lights, red and gold glass baubles, "
-            "silver stars, velvet ribbons and garlands, small wrapped gifts piled "
-            "beneath the tree, deep midnight-green background with soft falling "
-            "snow, warm glowing candlelight, rich saturated reds greens and golds, "
-            "thick impasto brushwork, masterpiece, museum quality wall art, "
-            "gallery lighting, 8k highly detailed"
-        ),
-        "negative_prompt": COMMON_NEGATIVE,
-        "conditioning_scale": 1.15,
-        "guidance_scale": 7.5,
-        "num_inference_steps": 20,
-        "control_guidance_end": 1.0,
-    },
-    "aycicegi_salonu": {
-        "label": "Ayçiçeği Salonu",
-        "artist": "Klasik salon natürmortu",
-        "prompt": (
-            "Elegant still life oil painting, a lush bouquet of golden sunflowers "
-            "in a cream ceramic ginger-jar vase on a polished walnut console "
-            "table, in a classic American country-house living room, softly "
-            "blurred background with warm oak paneling, a tufted leather "
-            "armchair, a brass lamp glowing, soft window light from the left, "
-            "warm honey and ochre tones, refined traditional interior, thick "
-            "expressive brushwork, masterpiece, museum quality wall art, gallery "
-            "lighting, 8k highly detailed"
-        ),
-        "negative_prompt": COMMON_NEGATIVE,
-        "conditioning_scale": 1.2,
-        "guidance_scale": 7.5,
-        "num_inference_steps": 20,
-        "control_guidance_end": 1.0,
-    },
     "sakayik_buketi": {
-        "label": "Şakayık Buketi",
-        "artist": "Romantik natürmort",
+        "label": "Barok Şakayık Buketi",
+        "artist": "Hollanda Altın Çağı natürmortu",
         "prompt": (
-            "Romantic still life oil painting, an overflowing bouquet of "
-            "blush-pink, coral and white peonies with ruffled petals and soft "
-            "green leaves in a tall clear glass vase on a pale marble table, soft "
-            "diffused window light, muted cream and sage background, delicate yet "
-            "rich petal texture, loose expressive brushstrokes, masterpiece, "
-            "museum quality wall art, gallery lighting, 8k highly detailed"
+            "Dutch Golden Age baroque floral still life oil painting, a dense "
+            "overflowing bouquet of peonies in blush-pink, deep magenta-burgundy "
+            "and cream-white with golden centers, ruffled layered petals and dark "
+            "green leaves, the bouquet filling the upper two thirds of the "
+            "canvas, standing in one ornate footed gilded bronze urn with "
+            "engraved detailing and warm specular highlights, the urn resting on "
+            "a dark veined black marble table, the entire background is a plain "
+            "black velvet drape with soft folds, no other objects, single "
+            "dramatic light from the upper left, strong chiaroscuro, thick "
+            "textured oil paint with visible brushwork, masterpiece, museum "
+            "quality wall art, gallery lighting, 8k highly detailed"
         ),
-        "negative_prompt": COMMON_NEGATIVE,
+        "negative_prompt": COMMON_NEGATIVE + (
+            ", shape in the background, pattern in the background, silhouette "
+            "in the background, face in the background, figure in the "
+            "background, window, wall, room, extra vase, multiple vases"
+        ),
         "conditioning_scale": 1.15,
         "guidance_scale": 7.5,
         "num_inference_steps": 20,
         "control_guidance_end": 1.0,
+        # Silüet yalnızca buketin olduğu elipste; arka plan, vazo ve masa sade kalır.
+        "conditioning_layout": "bouquet",
+        "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.86, "h": 0.66, "feather": 0.10, "bg": 24},
     },
 }
 
