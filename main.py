@@ -38,7 +38,7 @@ import shopify_discount
 # ---------------------------------------------------------------------------
 FAL_KEY = os.environ.get("FAL_KEY", "")
 FAL_SUBMIT_URL = "https://queue.fal.run/fal-ai/illusion-diffusion"
-FAL_QUEUE_MAX_WAIT_S = 55   # senkron /create-preview yolu için — Railway'in gateway'i araya girmesin diye temkinli
+FAL_QUEUE_MAX_WAIT_S = 900   # senkron /create-preview yolu için — Railway'in gateway'i araya girmesin diye temkinli
 FAL_QUEUE_MAX_WAIT_S_BACKGROUND = 300  # arka plan job'ları için — açık bir bağlantı yok, çok daha sabırlı olabiliriz
 FAL_POLL_INTERVAL_S = 1.2   # her durum sorgusu arası bekleme
 FAL_SHORT_CALL_TIMEOUT_S = 12  # gönderim/sorgu/sonuç çağrılarının HER BİRİ kısa tutulur
