@@ -35,19 +35,46 @@ _runs = 0
 _runs_lock = threading.Lock()
 
 
+def _clamp(v, lo, hi, default):
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return default
+    return max(lo, min(hi, x))
+
+
 def register(app, run_pipeline, fetch_bytes):
     styles = [{"key": k, "label": v["label"]} for k, v in PAINTINGS.items()]
+    defaults = {
+        k: {
+            "prompt": v["prompt"],
+            "negative_prompt": v["negative_prompt"],
+            "conditioning_scale": v["conditioning_scale"],
+            "guidance_scale": v["guidance_scale"],
+            "num_inference_steps": v["num_inference_steps"],
+            "control_guidance_end": v.get("control_guidance_end", 1.0),
+        }
+        for k, v in PAINTINGS.items()
+    }
 
     @app.get("/test", response_class=HTMLResponse)
     async def test_page():
-        return HTML.replace("__STYLES__", json.dumps(styles, ensure_ascii=False))
+        return (
+            HTML.replace("__STYLES__", json.dumps(styles, ensure_ascii=False))
+            .replace("__DEFAULTS__", json.dumps(defaults, ensure_ascii=False))
+        )
 
     @app.post("/test/run")
     async def test_run(
         password: str = Form(...),
         painting_key: str = Form(...),
-        strength: str = Form("orta"),
         file: UploadFile = File(...),
+        prompt: str | None = Form(None),
+        negative_prompt: str | None = Form(None),
+        conditioning_scale: str | None = Form(None),
+        guidance_scale: str | None = Form(None),
+        num_inference_steps: str | None = Form(None),
+        control_guidance_end: str | None = Form(None),
     ):
         global _runs
 
@@ -59,9 +86,22 @@ def register(app, run_pipeline, fetch_bytes):
         if not hmac.compare_digest(password.encode(), TEST_PASSWORD.encode()):
             return JSONResponse(status_code=401, content={"ok": False, "error": "Şifre yanlış."})
 
-        painting = get_painting(painting_key, strength)
-        if not painting:
+        base = get_painting(painting_key, "orta")
+        if not base:
             return JSONResponse(status_code=400, content={"ok": False, "error": "Geçersiz stil."})
+
+        # Panelden gelen değerler (güvenli aralıkta) stilin varsayılanlarını ezer.
+        painting = dict(base)
+        if prompt and prompt.strip():
+            painting["prompt"] = prompt.strip()[:2000]
+        if negative_prompt is not None and negative_prompt.strip():
+            painting["negative_prompt"] = negative_prompt.strip()[:2000]
+        painting["conditioning_scale"] = _clamp(conditioning_scale, 0.3, 2.0, base["conditioning_scale"])
+        painting["guidance_scale"] = _clamp(guidance_scale, 1.0, 20.0, base["guidance_scale"])
+        painting["num_inference_steps"] = int(_clamp(num_inference_steps, 10, 50, base["num_inference_steps"]))
+        painting["control_guidance_end"] = _clamp(
+            control_guidance_end, 0.2, 1.0, base.get("control_guidance_end", 1.0)
+        )
 
         raw_bytes = file.file.read()
         if not raw_bytes:
@@ -112,18 +152,20 @@ HTML = r"""<!doctype html>
   .panel h2{margin:0 0 10px;font-size:15px}
   .row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
   .row>div{flex:1 1 260px}
-  label.chk{display:inline-flex;align-items:center;gap:6px;margin:0 12px 6px 0;font-size:14px}
-  input[type=password],select{padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;width:100%;max-width:280px}
+  .lbl{font-size:12.5px;color:var(--mut);margin:10px 0 4px;display:block}
+  input[type=password],input[type=text],select,textarea{padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px;width:100%}
+  textarea{min-height:110px;resize:vertical;line-height:1.4}
   button{font:inherit;cursor:pointer}
   .btn{background:var(--g);color:#fff;border:0;border-radius:10px;padding:11px 18px;font-weight:600}
   .btn:disabled{opacity:.45;cursor:not-allowed}
   .btn.sec{background:#fff;color:var(--g);border:1.5px solid var(--g)}
   .small{font-size:12.5px;color:var(--mut)}
+  .hint{font-size:12px;color:var(--mut);margin-top:3px}
   #squint{position:sticky;top:0;z-index:5;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
   #squint input[type=range]{flex:1 1 220px}
   #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
   .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px}
-  .card h3{margin:0;font-size:14px}
+  .card h3{margin:0;font-size:13.5px;line-height:1.35}
   .meta{font-size:12px;color:var(--mut);margin:2px 0 8px}
   .imgs{display:grid;grid-template-columns:1fr 2fr;gap:8px}
   .imgs .side{display:flex;flex-direction:column;gap:8px}
@@ -136,38 +178,69 @@ HTML = r"""<!doctype html>
   .rate button{border:1px solid var(--line);background:#fff;border-radius:100px;padding:5px 10px;font-size:12.5px}
   .rate button.on{background:var(--soft);border-color:var(--acc);color:var(--g);font-weight:600}
   .rate button.on.bad{background:#fdeaea;border-color:var(--bad);color:var(--bad)}
-  .links{font-size:12px;margin-top:6px}
-  .links a{color:var(--g2)}
+  .links{font-size:12px;margin-top:6px;display:flex;gap:12px;flex-wrap:wrap}
+  .links a,.links button{color:var(--g2);background:none;border:0;padding:0;text-decoration:underline;font-size:12px}
+  .note{width:100%;margin-top:6px;font-size:12.5px;padding:6px 8px}
   #lb{position:fixed;inset:0;background:rgba(15,26,19,.94);display:none;align-items:center;justify-content:center;z-index:50}
   #lb img{max-width:92vw;max-height:92vh;border-radius:6px}
   #summary{font-size:14px}
+  .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(max-width:560px){#grid{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <header>
   <h1>visotale · Test Paneli</h1>
-  <p>Fotoğraf yükle, stil seç, sonucu gör, “gözünü kıs” kaydırıcısıyla yüzün çıkıp çıkmadığını dene.</p>
+  <p>Tek stili mükemmelleştirme modu: ayarları değiştir, aynı fotoğrafla karşılaştır, “gözünü kıs” ile yüzü ara.</p>
 </header>
 <main>
 
   <div class="panel">
-    <h2>1) Ayarlar</h2>
+    <h2>1) Fotoğraf ve stil</h2>
     <div class="row">
       <div>
-        <div class="small" style="margin-bottom:4px">Şifre</div>
+        <span class="lbl">Şifre</span>
         <input id="pw" type="password" placeholder="TEST_PASSWORD" autocomplete="off">
-        <div class="small" style="margin:12px 0 4px">Fotoğraflar (birden fazla seçebilirsin)</div>
+        <span class="lbl">Fotoğraflar (birden fazla seçebilirsin)</span>
         <input id="files" type="file" accept="image/*" multiple>
       </div>
       <div>
-        <div class="small" style="margin-bottom:6px">Stiller</div>
-        <div id="styles"></div>
-        <div class="small" style="margin:10px 0 6px">Belirginlik</div>
-        <label class="chk"><input type="checkbox" class="str" value="az"> Az</label>
-        <label class="chk"><input type="checkbox" class="str" value="orta" checked> Orta</label>
-        <label class="chk"><input type="checkbox" class="str" value="cok"> Çok</label>
+        <span class="lbl">Stil</span>
+        <select id="style"></select>
+        <button class="btn sec" id="reset" type="button" style="margin-top:10px">Bu stilin varsayılanlarını yükle</button>
       </div>
     </div>
+  </div>
+
+  <div class="panel">
+    <h2>2) Ayarlar <span class="small">(virgülle birden fazla değer yazarsan hepsini dener)</span></h2>
+    <div class="grid2">
+      <div>
+        <span class="lbl">ControlNet gücü (yüz ne kadar çıksın)</span>
+        <input id="scale" type="text">
+        <div class="hint">Yüz hiç çıkmıyorsa artır, çok belliyse düşür. Örnek: 0.9, 1.0, 1.15, 1.3</div>
+      </div>
+      <div>
+        <span class="lbl">Guidance (prompt'a bağlılık)</span>
+        <input id="guid" type="text">
+        <div class="hint">Yüksek: tablo daha “tablo gibi”, düşük: görsele daha yakın. Örnek: 6.5, 7.5, 9</div>
+      </div>
+      <div>
+        <span class="lbl">Adım sayısı</span>
+        <input id="steps" type="text">
+        <div class="hint">20-30 arası. Yüksek: yavaş ama temiz olabilir.</div>
+      </div>
+      <div>
+        <span class="lbl">Control guidance end (0.2–1.0)</span>
+        <input id="cge" type="text">
+        <div class="hint">Düşük: yüz yapısı yalnızca erken adımlarda etkili, daha “doğal”.</div>
+      </div>
+    </div>
+    <span class="lbl">Prompt (tabloyu tarif eden metin, değiştirebilirsin)</span>
+    <textarea id="prompt"></textarea>
+    <details style="margin-top:8px"><summary class="small" style="cursor:pointer">Negatif prompt</summary>
+      <textarea id="neg" style="min-height:70px;margin-top:6px"></textarea>
+    </details>
     <div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
       <button class="btn" id="go">Başlat</button>
       <span id="count" class="small"></span>
@@ -188,56 +261,72 @@ HTML = r"""<!doctype html>
 
 <script>
 var STYLES = __STYLES__;
+var DEFAULTS = __DEFAULTS__;
 var LS = 'visotale_test_pw';
 var tasks = [], running = 0, MAXPAR = 2, halted = false;
 
-var pw = document.getElementById('pw');
+function $(id) { return document.getElementById(id); }
+
+var pw = $('pw');
 try { pw.value = sessionStorage.getItem(LS) || ''; } catch (e) {}
 pw.addEventListener('input', function () { try { sessionStorage.setItem(LS, pw.value); } catch (e) {} });
 
-var stylesBox = document.getElementById('styles');
-STYLES.forEach(function (s, i) {
-  var l = document.createElement('label');
-  l.className = 'chk';
-  l.innerHTML = '<input type="checkbox" class="sty" value="' + s.key + '"' + (['starry_night','yilbasi_agaci','aycicegi_salonu','sakayik_buketi'].indexOf(s.key) >= 0 ? ' checked' : '') + '> ' + s.label;
-  stylesBox.appendChild(l);
+var sel = $('style');
+STYLES.forEach(function (s) {
+  var o = document.createElement('option');
+  o.value = s.key; o.textContent = s.label;
+  sel.appendChild(o);
 });
+sel.value = DEFAULTS['sakayik_buketi'] ? 'sakayik_buketi' : STYLES[0].key;
 
-function selected(cls) {
-  return Array.prototype.map.call(document.querySelectorAll(cls + ':checked'), function (e) { return e.value; });
+function loadDefaults() {
+  var d = DEFAULTS[sel.value];
+  $('scale').value = d.conditioning_scale;
+  $('guid').value = d.guidance_scale;
+  $('steps').value = d.num_inference_steps;
+  $('cge').value = d.control_guidance_end;
+  $('prompt').value = d.prompt;
+  $('neg').value = d.negative_prompt;
+  updateCount();
+}
+sel.addEventListener('change', loadDefaults);
+$('reset').addEventListener('click', loadDefaults);
+
+function nums(str) {
+  return String(str).split(',').map(function (x) { return parseFloat(x.trim().replace(',', '.')); })
+    .filter(function (x) { return !isNaN(x); });
 }
 function updateCount() {
-  var n = document.getElementById('files').files.length * selected('.sty').length * selected('.str').length;
-  document.getElementById('count').textContent = n + ' üretim ≈ ' + (n * 0.044).toFixed(2) + ' $';
+  var n = $('files').files.length * nums($('scale').value).length * nums($('guid').value).length;
+  $('count').textContent = n + ' üretim ≈ ' + (n * 0.044).toFixed(2) + ' $';
 }
 document.addEventListener('change', updateCount);
-updateCount();
+document.addEventListener('input', function (e) { if (e.target.id === 'scale' || e.target.id === 'guid') updateCount(); });
 
-var blur = document.getElementById('blur');
+var blur = $('blur');
 function applyBlur() {
   var v = blur.value;
-  document.getElementById('blurv').textContent = v + ' px';
+  $('blurv').textContent = v + ' px';
   var imgs = document.querySelectorAll('.res img, #lbimg');
   for (var i = 0; i < imgs.length; i++) imgs[i].style.filter = v > 0 ? 'blur(' + v + 'px)' : '';
 }
 blur.addEventListener('input', applyBlur);
 
-var grid = document.getElementById('grid');
+var grid = $('grid');
 
-function labelOf(key) {
-  for (var i = 0; i < STYLES.length; i++) if (STYLES[i].key === key) return STYLES[i].label;
-  return key;
+function paramText(p) {
+  return 'güç ' + p.scale + ' · guid ' + p.guid + ' · adım ' + p.steps + ' · end ' + p.cge;
 }
 
 function makeCard(t) {
   var c = document.createElement('div');
   c.className = 'card';
   c.innerHTML =
-    '<h3>' + labelOf(t.style) + ' · ' + t.strength + '</h3>' +
-    '<div class="meta"></div>' +
+    '<h3></h3><div class="meta"></div>' +
     '<div class="imgs"><div class="side"><img class="orig" alt=""><img class="cond" alt="" style="display:none"></div>' +
     '<div class="res"><div class="st">Sırada…</div></div></div>' +
     '<div class="rate"></div><div class="links"></div>';
+  c.querySelector('h3').textContent = paramText(t.p);
   c.querySelector('.meta').textContent = t.file.name;
   c.querySelector('.orig').src = t.objUrl;
   t.card = c;
@@ -257,8 +346,8 @@ function showResult(t, d) {
   var im = r.firstChild;
   im.src = url;
   im.addEventListener('click', function () {
-    document.getElementById('lbimg').src = url;
-    document.getElementById('lb').style.display = 'flex';
+    $('lbimg').src = url;
+    $('lb').style.display = 'flex';
     applyBlur();
   });
   if (d.debug && d.debug.conditioning_url) {
@@ -267,8 +356,20 @@ function showResult(t, d) {
   }
   t.card.querySelector('.meta').textContent = t.file.name + ' · ' + d.elapsed_s + ' sn';
   t.elapsed = d.elapsed_s;
-  t.card.querySelector('.links').innerHTML =
-    '<a target="_blank" rel="noopener" href="' + d.preview_url + '">filigranlı önizleme</a>';
+  var links = t.card.querySelector('.links');
+  links.innerHTML = '<a target="_blank" rel="noopener" href="' + d.preview_url + '">filigranlı önizleme</a>';
+  var use = document.createElement('button');
+  use.type = 'button'; use.textContent = 'bu ayarı forma al';
+  use.addEventListener('click', function () {
+    $('scale').value = t.p.scale; $('guid').value = t.p.guid;
+    $('steps').value = t.p.steps; $('cge').value = t.p.cge;
+    window.scrollTo({ top: 0, behavior: 'smooth' }); updateCount();
+  });
+  links.appendChild(use);
+  var note = document.createElement('input');
+  note.type = 'text'; note.className = 'note'; note.placeholder = 'not (örn. yüz çok belli, ağız bozuk)';
+  note.addEventListener('input', function () { t.note = note.value; });
+  t.card.appendChild(note);
   buildRate(t);
   applyBlur();
 }
@@ -295,7 +396,7 @@ function summarize() {
   var done = tasks.filter(function (t) { return t.elapsed !== undefined; });
   var err = tasks.filter(function (t) { return t.failed; }).length;
   var pass = done.filter(function (t) { return t.rate.known && t.rate.face && !t.rate.pasted; }).length;
-  var el = document.getElementById('summary');
+  var el = $('summary');
   if (!tasks.length) { el.textContent = 'Henüz sonuç yok.'; return; }
   el.innerHTML = '<b>' + done.length + '</b> sonuç · <b>' + err + '</b> hata · geçen (üç kriter): <b>' + pass + '</b> / ' + done.length +
     (done.length ? ' (%' + Math.round(100 * pass / done.length) + ')' : '') +
@@ -329,8 +430,13 @@ function pump() {
     var fd = new FormData();
     fd.append('password', pw.value);
     fd.append('painting_key', t.style);
-    fd.append('strength', t.strength);
     fd.append('file', t.file);
+    fd.append('prompt', t.prompt);
+    fd.append('negative_prompt', t.neg);
+    fd.append('conditioning_scale', t.p.scale);
+    fd.append('guidance_scale', t.p.guid);
+    fd.append('num_inference_steps', t.p.steps);
+    fd.append('control_guidance_end', t.p.cge);
     (function (tt) {
       fetch('/test/run', { method: 'POST', body: fd }).then(function (r) {
         return r.json().then(function (j) { return { status: r.status, body: j }; });
@@ -348,19 +454,25 @@ function pump() {
   }
 }
 
-document.getElementById('go').addEventListener('click', function () {
-  var files = document.getElementById('files').files;
-  var sty = selected('.sty'), str = selected('.str');
+$('go').addEventListener('click', function () {
+  var files = $('files').files;
+  var scales = nums($('scale').value), guids = nums($('guid').value);
+  var steps = nums($('steps').value)[0], cge = nums($('cge').value)[0];
   if (!pw.value) { alert('Şifreyi gir.'); return; }
-  if (!files.length || !sty.length || !str.length) { alert('Fotoğraf, stil ve belirginlik seç.'); return; }
-  var n = files.length * sty.length * str.length;
+  if (!files.length) { alert('En az bir fotoğraf seç.'); return; }
+  if (!scales.length || !guids.length || steps === undefined || cge === undefined) { alert('Ayar alanlarına sayı gir.'); return; }
+  var n = files.length * scales.length * guids.length;
   if (n > 40 && !confirm(n + ' üretim başlayacak (≈ ' + (n * 0.044).toFixed(2) + ' $). Devam?')) return;
   halted = false;
   Array.prototype.forEach.call(files, function (f) {
     var u = URL.createObjectURL(f);
-    sty.forEach(function (s) {
-      str.forEach(function (z) {
-        var t = { file: f, objUrl: u, style: s, strength: z, rate: {}, started: false };
+    scales.forEach(function (sc) {
+      guids.forEach(function (g) {
+        var t = {
+          file: f, objUrl: u, style: sel.value, rate: {}, started: false,
+          prompt: $('prompt').value, neg: $('neg').value,
+          p: { scale: sc, guid: g, steps: steps, cge: cge }
+        };
         tasks.push(t); makeCard(t);
       });
     });
@@ -368,12 +480,13 @@ document.getElementById('go').addEventListener('click', function () {
   summarize(); pump();
 });
 
-document.getElementById('lb').addEventListener('click', function () { this.style.display = 'none'; });
+$('lb').addEventListener('click', function () { this.style.display = 'none'; });
 
-document.getElementById('csv').addEventListener('click', function () {
-  var rows = [['dosya', 'stil', 'belirginlik', 'tablo_taniniyor', 'yuz_cikiyor', 'yapistirilmis_his', 'sure_sn', 'hata']];
+$('csv').addEventListener('click', function () {
+  var rows = [['dosya', 'stil', 'guc', 'guidance', 'adim', 'control_end', 'tablo_taniniyor', 'yuz_cikiyor', 'yapistirilmis_his', 'sure_sn', 'hata', 'not']];
   tasks.forEach(function (t) {
-    rows.push([t.file.name, t.style, t.strength, t.rate.known ? 1 : 0, t.rate.face ? 1 : 0, t.rate.pasted ? 1 : 0, t.elapsed || '', t.failed ? 1 : 0]);
+    rows.push([t.file.name, t.style, t.p.scale, t.p.guid, t.p.steps, t.p.cge,
+      t.rate.known ? 1 : 0, t.rate.face ? 1 : 0, t.rate.pasted ? 1 : 0, t.elapsed || '', t.failed ? 1 : 0, t.note || '']);
   });
   var csv = rows.map(function (r) { return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
   var a = document.createElement('a');
@@ -381,6 +494,8 @@ document.getElementById('csv').addEventListener('click', function () {
   a.download = 'visotale-test-sonuclari.csv';
   a.click();
 });
+
+loadDefaults();
 </script>
 </body>
 </html>
