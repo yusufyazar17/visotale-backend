@@ -289,7 +289,13 @@ HTML = r"""<!doctype html>
       <div><span class="lbl">Yükseklik (0.3–1.0)</span><input id="l_h" type="text"></div>
       <div><span class="lbl">Kenar yumuşatma (0–0.4)</span><input id="l_f" type="text"></div>
       <div><span class="lbl">Portre boyutu (0.3–1.0; 0 = elipse otomatik sığdır)</span><input id="l_s" type="text">
-        <div class="hint">Kadın/erkek kesiliyorsa küçült. 0 yazarsan portrenin tamamı kesinlikle elipse sığar.</div></div>
+        <div class="hint">Kesiliyorsa küçült. 0 yazarsan portrenin tamamı kesinlikle elipse sığar.</div></div>
+      <div><span class="lbl">Açık halka parlaklığı (0–255, 150 önerilen)</span><input id="l_halo" type="text">
+        <div class="hint">Portre çevresindeki açık zemin. Saçlar kayboluyorsa artır, arka plana iz sızıyorsa düşür.</div></div>
+      <div><span class="lbl">Portre dikey kayma (−0.15…0.15, + aşağı)</span><input id="l_dy" type="text">
+        <div class="hint">Kafa tepesi kesiliyorsa pozitif yap (portre aşağı iner).</div></div>
+      <div><span class="lbl">Baş üstü boşluğu (0.3–1.6)</span><input id="l_pt" type="text">
+        <div class="hint">Saç kırpılıyorsa artır. Fotoğrafın kendisinde boşluk yoksa etkisi sınırlıdır.</div></div>
     </div>
     <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
       <button class="btn sec" id="prevcond" type="button">Hazırlık önizlemesi (ücretsiz)</button>
@@ -379,7 +385,10 @@ function loadDefaults() {
   var lp = d.layout_params || {};
   $('l_cx').value = lp.cx; $('l_cy').value = lp.cy; $('l_w').value = lp.w;
   $('l_h').value = lp.h; $('l_f').value = lp.feather; $('l_bg').value = lp.bg;
-  $('l_s').value = (lp.size === undefined ? 0.66 : lp.size);
+  $('l_s').value = (lp.size === undefined ? 0.68 : lp.size);
+  $('l_halo').value = (lp.halo === undefined ? 150 : lp.halo);
+  $('l_dy').value = (lp.dy === undefined ? 0.02 : lp.dy);
+  $('l_pt').value = (lp.pad_top === undefined ? 1.0 : lp.pad_top);
   updateCount();
 }
 sel.addEventListener('change', loadDefaults);
@@ -394,7 +403,10 @@ function layoutParams() {
     cx: parseFloat($('l_cx').value), cy: parseFloat($('l_cy').value),
     w: parseFloat($('l_w').value), h: parseFloat($('l_h').value),
     feather: parseFloat($('l_f').value), bg: parseFloat($('l_bg').value),
-    size: parseFloat($('l_s').value)
+    size: parseFloat($('l_s').value),
+    halo: parseFloat($('l_halo').value),
+    dy: parseFloat($('l_dy').value),
+    pad_top: parseFloat($('l_pt').value)
   });
 }
 function updateCount() {
