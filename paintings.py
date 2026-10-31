@@ -159,7 +159,7 @@ PAINTINGS = {
         "control_guidance_end": 1.0,
         # Silüet yalnızca buketin olduğu elipste; arka plan, vazo ve masa sade kalır.
         "conditioning_layout": "bouquet",
-        "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.86, "h": 0.66, "feather": 0.10, "bg": 24},
+        "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.86, "h": 0.66, "feather": 0.10, "bg": 24, "size": 0.66},
     },
 }
 
