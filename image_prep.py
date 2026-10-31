@@ -16,7 +16,7 @@ düşer — bu bir hata değil, güvenli bir yedektir.
 import io
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageOps, ImageEnhance
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps, ImageEnhance
 
 FACE_CASCADE = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
@@ -103,6 +103,7 @@ LAYOUT_BOUQUET = {
     "h": 0.66,        # elips yüksekliği
     "feather": 0.10,  # kenar yumuşatma (küçük kenarın oranı)
     "bg": 24,         # elips dışının parlaklığı (0 siyah - 255 beyaz)
+    "size": 0.66,     # portre karesinin tuvale oranı (0 = elipse otomatik sığdır)
 }
 
 
@@ -111,6 +112,16 @@ def _clamp(v, lo, hi, default):
         return max(lo, min(hi, float(v)))
     except (TypeError, ValueError):
         return default
+
+
+def _sanitize_size(v):
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return LAYOUT_BOUQUET["size"]
+    if x <= 0:
+        return 0.0  # otomatik sığdır
+    return max(0.3, min(1.0, x))
 
 
 def _sanitize_layout(params: dict | None) -> dict:
@@ -125,6 +136,7 @@ def _sanitize_layout(params: dict | None) -> dict:
         "h": _clamp(p["h"], 0.3, 1.0, LAYOUT_BOUQUET["h"]),
         "feather": _clamp(p["feather"], 0.0, 0.4, LAYOUT_BOUQUET["feather"]),
         "bg": int(_clamp(p["bg"], 0, 120, LAYOUT_BOUQUET["bg"])),
+        "size": _sanitize_size(p["size"]),
     }
 
 
@@ -135,7 +147,12 @@ def _compose_bouquet(gray_square: Image.Image, params: dict | None) -> Image.Ima
     h = int(S * p["h"])
     cx = int(S * p["cx"])
     cy = int(S * p["cy"])
-    side = max(w, h)
+    if p["size"] == 0:
+        # elipse tam sığan en büyük kare: yarı kenar = 1 / sqrt(1/a^2 + 1/b^2)
+        a, b = w / 2.0, h / 2.0
+        side = int(2.0 / ((1.0 / a ** 2 + 1.0 / b ** 2) ** 0.5))
+    else:
+        side = int(S * p["size"])
 
     face = ImageOps.grayscale(gray_square).resize((side, side), Image.LANCZOS)
 
@@ -143,12 +160,24 @@ def _compose_bouquet(gray_square: Image.Image, params: dict | None) -> Image.Ima
     layer = Image.new("L", (S, S), p["bg"])
     layer.paste(face, (cx - side // 2, cy - side // 2))
 
+    # 1) elips maskesi: silüetin çiçek bölgesinin dışına çıkmasını engeller
     mask = Image.new("L", (S, S), 0)
     ImageDraw.Draw(mask).ellipse(
         [cx - w // 2, cy - h // 2, cx + w // 2, cy + h // 2], fill=255
     )
     radius = max(0.1, min(w, h) * p["feather"])
     mask = mask.filter(ImageFilter.GaussianBlur(radius))
+
+    # 2) portre karesinin kendi kenarları da yumuşar (sert dikdörtgen izi kalmasın):
+    #    yuvarlak köşeli kare + bulanıklık
+    sq = Image.new("L", (S, S), 0)
+    x0, y0 = cx - side // 2, cy - side // 2
+    ImageDraw.Draw(sq).rounded_rectangle(
+        [x0, y0, x0 + side, y0 + side], radius=int(side * 0.30), fill=255
+    )
+    sq = sq.filter(ImageFilter.GaussianBlur(max(1.0, side * max(0.09, p["feather"] * 1.3))))
+
+    mask = ImageChops.multiply(mask, sq)
 
     out = Image.composite(layer, base, mask)
     return out.convert("RGB")
