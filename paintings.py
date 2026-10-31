@@ -126,6 +126,64 @@ PAINTINGS = {
         "num_inference_steps": 20,
         "control_guidance_end": 1.0,
     },
+
+    # ------------------------------------------------------------------
+    # YENİ STİLLER (test aşamasında — taslak prompt, sonuçlara göre ayarlanır)
+    # ------------------------------------------------------------------
+    "yilbasi_agaci": {
+        "label": "Yılbaşı Ağacı",
+        "artist": "Yılbaşı özel",
+        "prompt": (
+            "Festive Christmas oil painting, a grand fir tree decorated with "
+            "hundreds of warm golden fairy lights, red and gold glass baubles, "
+            "silver stars, velvet ribbons and garlands, small wrapped gifts piled "
+            "beneath the tree, deep midnight-green background with soft falling "
+            "snow, warm glowing candlelight, rich saturated reds greens and golds, "
+            "thick impasto brushwork, masterpiece, museum quality wall art, "
+            "gallery lighting, 8k highly detailed"
+        ),
+        "negative_prompt": COMMON_NEGATIVE,
+        "conditioning_scale": 1.15,
+        "guidance_scale": 7.5,
+        "num_inference_steps": 20,
+        "control_guidance_end": 1.0,
+    },
+    "aycicegi_salonu": {
+        "label": "Ayçiçeği Salonu",
+        "artist": "Klasik salon natürmortu",
+        "prompt": (
+            "Elegant still life oil painting, a lush bouquet of golden sunflowers "
+            "in a cream ceramic ginger-jar vase on a polished walnut console "
+            "table, in a classic American country-house living room, softly "
+            "blurred background with warm oak paneling, a tufted leather "
+            "armchair, a brass lamp glowing, soft window light from the left, "
+            "warm honey and ochre tones, refined traditional interior, thick "
+            "expressive brushwork, masterpiece, museum quality wall art, gallery "
+            "lighting, 8k highly detailed"
+        ),
+        "negative_prompt": COMMON_NEGATIVE,
+        "conditioning_scale": 1.2,
+        "guidance_scale": 7.5,
+        "num_inference_steps": 20,
+        "control_guidance_end": 1.0,
+    },
+    "sakayik_buketi": {
+        "label": "Şakayık Buketi",
+        "artist": "Romantik natürmort",
+        "prompt": (
+            "Romantic still life oil painting, an overflowing bouquet of "
+            "blush-pink, coral and white peonies with ruffled petals and soft "
+            "green leaves in a tall clear glass vase on a pale marble table, soft "
+            "diffused window light, muted cream and sage background, delicate yet "
+            "rich petal texture, loose expressive brushstrokes, masterpiece, "
+            "museum quality wall art, gallery lighting, 8k highly detailed"
+        ),
+        "negative_prompt": COMMON_NEGATIVE,
+        "conditioning_scale": 1.15,
+        "guidance_scale": 7.5,
+        "num_inference_steps": 20,
+        "control_guidance_end": 1.0,
+    },
 }
 
 
