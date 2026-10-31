@@ -17,15 +17,20 @@ Mevcut /job-status/{id} uç noktasını yeniden kullanır, başka bir şeye doku
 """
 
 import hmac
+import inspect
+import io
 import json
 import os
 import threading
 
 from fastapi import File, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 import jobs
 from paintings import PAINTINGS, get_painting
+
+# Panelde yalnızca bu stiller listelenir (kafa karışıklığı olmasın diye).
+ACTIVE_TEST_STYLES = ("sakayik_buketi",)
 
 TEST_PASSWORD = os.environ.get("TEST_PASSWORD", "")
 TEST_MAX_RUNS = int(os.environ.get("TEST_MAX_RUNS", "300"))
@@ -44,7 +49,14 @@ def _clamp(v, lo, hi, default):
 
 
 def register(app, run_pipeline, fetch_bytes):
-    styles = [{"key": k, "label": v["label"]} for k, v in PAINTINGS.items()]
+    from image_prep import prepare_conditioning_image, LAYOUT_BOUQUET
+
+    try:
+        layout_supported = "conditioning_layout" in inspect.getsource(run_pipeline)
+    except Exception:  # noqa: BLE001
+        layout_supported = False
+
+    styles = [{"key": k, "label": v["label"]} for k, v in PAINTINGS.items() if k in ACTIVE_TEST_STYLES]
     defaults = {
         k: {
             "prompt": v["prompt"],
@@ -53,8 +65,11 @@ def register(app, run_pipeline, fetch_bytes):
             "guidance_scale": v["guidance_scale"],
             "num_inference_steps": v["num_inference_steps"],
             "control_guidance_end": v.get("control_guidance_end", 1.0),
+            "layout": v.get("conditioning_layout") or "none",
+            "layout_params": v.get("layout_params") or LAYOUT_BOUQUET,
         }
         for k, v in PAINTINGS.items()
+        if k in ACTIVE_TEST_STYLES
     }
 
     @app.get("/test", response_class=HTMLResponse)
@@ -62,7 +77,41 @@ def register(app, run_pipeline, fetch_bytes):
         return (
             HTML.replace("__STYLES__", json.dumps(styles, ensure_ascii=False))
             .replace("__DEFAULTS__", json.dumps(defaults, ensure_ascii=False))
+            .replace("__LAYOUT_OK__", "true" if layout_supported else "false")
         )
+
+    def _check_password(password: str):
+        if not TEST_PASSWORD:
+            return JSONResponse(
+                status_code=503,
+                content={"ok": False, "error": "Test paneli kapalı (TEST_PASSWORD tanımlı değil)."},
+            )
+        if not hmac.compare_digest(password.encode(), TEST_PASSWORD.encode()):
+            return JSONResponse(status_code=401, content={"ok": False, "error": "Şifre yanlış."})
+        return None
+
+    @app.post("/test/cond")
+    async def test_cond(
+        password: str = Form(...),
+        layout: str | None = Form(None),
+        layout_params: str | None = Form(None),
+        file: UploadFile = File(...),
+    ):
+        """Yalnızca hazırlık görselini üretir — fal.ai çağrısı YOK, maliyet YOK."""
+        bad = _check_password(password)
+        if bad:
+            return bad
+        raw_bytes = file.file.read()
+        if not raw_bytes or len(raw_bytes) > MAX_UPLOAD_BYTES:
+            return JSONResponse(status_code=400, content={"ok": False, "error": "Dosya geçersiz."})
+        try:
+            params = json.loads(layout_params) if layout_params else None
+        except ValueError:
+            params = None
+        img = prepare_conditioning_image(raw_bytes, "bouquet" if layout == "bouquet" else None, params)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=88)
+        return Response(content=buf.getvalue(), media_type="image/jpeg")
 
     @app.post("/test/run")
     async def test_run(
@@ -75,16 +124,14 @@ def register(app, run_pipeline, fetch_bytes):
         guidance_scale: str | None = Form(None),
         num_inference_steps: str | None = Form(None),
         control_guidance_end: str | None = Form(None),
+        layout: str | None = Form(None),
+        layout_params: str | None = Form(None),
     ):
         global _runs
 
-        if not TEST_PASSWORD:
-            return JSONResponse(
-                status_code=503,
-                content={"ok": False, "error": "Test paneli kapalı (TEST_PASSWORD tanımlı değil)."},
-            )
-        if not hmac.compare_digest(password.encode(), TEST_PASSWORD.encode()):
-            return JSONResponse(status_code=401, content={"ok": False, "error": "Şifre yanlış."})
+        bad = _check_password(password)
+        if bad:
+            return bad
 
         base = get_painting(painting_key, "orta")
         if not base:
@@ -102,6 +149,16 @@ def register(app, run_pipeline, fetch_bytes):
         painting["control_guidance_end"] = _clamp(
             control_guidance_end, 0.2, 1.0, base.get("control_guidance_end", 1.0)
         )
+
+        if layout is not None:
+            painting["conditioning_layout"] = "bouquet" if layout == "bouquet" else None
+        if layout_params:
+            try:
+                lp = json.loads(layout_params)
+                if isinstance(lp, dict):
+                    painting["layout_params"] = lp
+            except ValueError:
+                pass
 
         raw_bytes = file.file.read()
         if not raw_bytes:
@@ -191,12 +248,12 @@ HTML = r"""<!doctype html>
 <body>
 <header>
   <h1>visotale · Test Paneli</h1>
-  <p>Tek stili mükemmelleştirme modu: ayarları değiştir, aynı fotoğrafla karşılaştır, “gözünü kıs” ile yüzü ara.</p>
+  <p>Tek stil modu: silüet alanını ayarla (ücretsiz önizleme), sonra üret, “gözünü kıs” ile yüzü ara.</p>
 </header>
 <main>
 
   <div class="panel">
-    <h2>1) Fotoğraf ve stil</h2>
+    <h2>1) Fotoğraf</h2>
     <div class="row">
       <div>
         <span class="lbl">Şifre</span>
@@ -213,7 +270,34 @@ HTML = r"""<!doctype html>
   </div>
 
   <div class="panel">
-    <h2>2) Ayarlar <span class="small">(virgülle birden fazla değer yazarsan hepsini dener)</span></h2>
+    <h2>2) Silüet alanı <span class="small">(yüz yalnızca bu elipste, çiçeklerin içinde olur)</span></h2>
+    <div id="layoutwarn" class="small" style="display:none;color:#D14545;margin-bottom:8px">
+      Uyarı: main.py güncel değil, bu ayarlar üretime uygulanmaz. Kılavuzdaki tek satırlık main.py değişikliğini yap.
+    </div>
+    <div class="grid2">
+      <div>
+        <span class="lbl">Yerleşim</span>
+        <select id="layout"><option value="bouquet">Buket elipsi (önerilen)</option><option value="none">Eski: tüm tuval</option></select>
+      </div>
+      <div>
+        <span class="lbl">Elips dışı parlaklık (0 siyah, 24 önerilen)</span>
+        <input id="l_bg" type="text">
+      </div>
+      <div><span class="lbl">Merkez yatay (0.2–0.8)</span><input id="l_cx" type="text"></div>
+      <div><span class="lbl">Merkez dikey (0.2–0.8, küçük=yukarı)</span><input id="l_cy" type="text"></div>
+      <div><span class="lbl">Genişlik (0.3–1.0)</span><input id="l_w" type="text"></div>
+      <div><span class="lbl">Yükseklik (0.3–1.0)</span><input id="l_h" type="text"></div>
+      <div><span class="lbl">Kenar yumuşatma (0–0.4)</span><input id="l_f" type="text"></div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <button class="btn sec" id="prevcond" type="button">Hazırlık önizlemesi (ücretsiz)</button>
+      <span class="small">fal.ai çağrılmaz, para harcamaz. Elipsin buketle örtüştüğünü kontrol et.</span>
+    </div>
+    <div id="condstrip" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>3) Ayarlar <span class="small">(virgülle birden fazla değer yazarsan hepsini dener)</span></h2>
     <div class="grid2">
       <div>
         <span class="lbl">ControlNet gücü (yüz ne kadar çıksın)</span>
@@ -262,6 +346,8 @@ HTML = r"""<!doctype html>
 <script>
 var STYLES = __STYLES__;
 var DEFAULTS = __DEFAULTS__;
+var LAYOUT_OK = __LAYOUT_OK__;
+if (!LAYOUT_OK) { document.getElementById('layoutwarn').style.display = 'block'; }
 var LS = 'visotale_test_pw';
 var tasks = [], running = 0, MAXPAR = 2, halted = false;
 
@@ -287,6 +373,10 @@ function loadDefaults() {
   $('cge').value = d.control_guidance_end;
   $('prompt').value = d.prompt;
   $('neg').value = d.negative_prompt;
+  $('layout').value = d.layout || 'none';
+  var lp = d.layout_params || {};
+  $('l_cx').value = lp.cx; $('l_cy').value = lp.cy; $('l_w').value = lp.w;
+  $('l_h').value = lp.h; $('l_f').value = lp.feather; $('l_bg').value = lp.bg;
   updateCount();
 }
 sel.addEventListener('change', loadDefaults);
@@ -295,6 +385,13 @@ $('reset').addEventListener('click', loadDefaults);
 function nums(str) {
   return String(str).split(',').map(function (x) { return parseFloat(x.trim().replace(',', '.')); })
     .filter(function (x) { return !isNaN(x); });
+}
+function layoutParams() {
+  return JSON.stringify({
+    cx: parseFloat($('l_cx').value), cy: parseFloat($('l_cy').value),
+    w: parseFloat($('l_w').value), h: parseFloat($('l_h').value),
+    feather: parseFloat($('l_f').value), bg: parseFloat($('l_bg').value)
+  });
 }
 function updateCount() {
   var n = $('files').files.length * nums($('scale').value).length * nums($('guid').value).length;
@@ -437,6 +534,8 @@ function pump() {
     fd.append('guidance_scale', t.p.guid);
     fd.append('num_inference_steps', t.p.steps);
     fd.append('control_guidance_end', t.p.cge);
+    fd.append('layout', t.layout);
+    fd.append('layout_params', t.lp);
     (function (tt) {
       fetch('/test/run', { method: 'POST', body: fd }).then(function (r) {
         return r.json().then(function (j) { return { status: r.status, body: j }; });
@@ -471,6 +570,7 @@ $('go').addEventListener('click', function () {
         var t = {
           file: f, objUrl: u, style: sel.value, rate: {}, started: false,
           prompt: $('prompt').value, neg: $('neg').value,
+          layout: $('layout').value, lp: layoutParams(),
           p: { scale: sc, guid: g, steps: steps, cge: cge }
         };
         tasks.push(t); makeCard(t);
@@ -480,12 +580,37 @@ $('go').addEventListener('click', function () {
   summarize(); pump();
 });
 
+$('prevcond').addEventListener('click', function () {
+  var files = $('files').files;
+  if (!pw.value) { alert('Şifreyi gir.'); return; }
+  if (!files.length) { alert('Önce fotoğraf seç.'); return; }
+  var strip = $('condstrip');
+  strip.innerHTML = '';
+  Array.prototype.forEach.call(files, function (f) {
+    var fd = new FormData();
+    fd.append('password', pw.value);
+    fd.append('file', f);
+    fd.append('layout', $('layout').value);
+    fd.append('layout_params', layoutParams());
+    fetch('/test/cond', { method: 'POST', body: fd }).then(function (r) {
+      if (!r.ok) { return r.json().then(function (j) { throw new Error(j.error || 'Hata'); }); }
+      return r.blob();
+    }).then(function (b) {
+      var im = document.createElement('img');
+      im.src = URL.createObjectURL(b);
+      im.title = f.name;
+      im.style.cssText = 'width:150px;height:150px;border-radius:8px;object-fit:cover';
+      strip.appendChild(im);
+    }).catch(function (e) { alert(e.message); });
+  });
+});
+
 $('lb').addEventListener('click', function () { this.style.display = 'none'; });
 
 $('csv').addEventListener('click', function () {
-  var rows = [['dosya', 'stil', 'guc', 'guidance', 'adim', 'control_end', 'tablo_taniniyor', 'yuz_cikiyor', 'yapistirilmis_his', 'sure_sn', 'hata', 'not']];
+  var rows = [['dosya', 'stil', 'guc', 'guidance', 'adim', 'control_end', 'yerlesim', 'tablo_taniniyor', 'yuz_cikiyor', 'yapistirilmis_his', 'sure_sn', 'hata', 'not']];
   tasks.forEach(function (t) {
-    rows.push([t.file.name, t.style, t.p.scale, t.p.guid, t.p.steps, t.p.cge,
+    rows.push([t.file.name, t.style, t.p.scale, t.p.guid, t.p.steps, t.p.cge, t.layout + ' ' + t.lp,
       t.rate.known ? 1 : 0, t.rate.face ? 1 : 0, t.rate.pasted ? 1 : 0, t.elapsed || '', t.failed ? 1 : 0, t.note || '']);
   });
   var csv = rows.map(function (r) { return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
