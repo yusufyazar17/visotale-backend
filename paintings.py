@@ -174,8 +174,10 @@ PAINTINGS = {
             "muted terracotta-apricot accents and grey-green foliage, all "
             "flowers in soft muted matte pastel antique tones, desaturated "
             "old master palette, not vivid, not neon, not saturated, the bouquet filling the upper two thirds of the canvas, "
-            "standing in one brass urn with a medallion relief and a footed "
-            "base standing on a clean dark wooden table with nothing else on it, "
+            "standing in one ornate footed gilded bronze urn with heavily "
+            "engraved baroque relief detailing, medallions and warm specular "
+            "highlights, the urn resting on a clean dark wooden table with "
+            "nothing else on it, "
             "the entire background is one seamless "
             "smooth flat matte dark forest-green wall with a soft gradient from "
             "very dark green at the edges to a slightly lighter deep green "
@@ -186,7 +188,7 @@ PAINTINGS = {
             "detailed"
         ),
         "negative_prompt": COMMON_NEGATIVE + (
-            ", picture frame, wooden frame, molding, border, panel, carved frame, vivid colors, saturated colors, neon colors, oversaturated, shape in the background, pattern in the background, silhouette "
+            ", plain vase, simple vase, smooth vase, ceramic vase, glass vase, white vase, undecorated vase, picture frame, wooden frame, molding, border, panel, carved frame, vivid colors, saturated colors, neon colors, oversaturated, shape in the background, pattern in the background, silhouette "
             "in the background, face in the background, figure in the "
             "background, damask, wallpaper, floral pattern on the wall, patterned "
             "wall, tapestry, tablecloth, fabric on the table, gold plate behind "
