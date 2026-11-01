@@ -97,7 +97,7 @@ def register(app, run_pipeline, fetch_bytes):
         layout_params: str | None = Form(None),
         file: UploadFile = File(...),
     ):
-        """Yalnızca hazırlık görselini üretir — fal.ai çağrısı YOK, maliyet YOK."""
+        """Yalnızca hazırlık görselini üretir — illusion fal çağrısı YOK. (Sadece "arka planı sil" modunda ~1 kuruşluk silme çağrısı yapılır; aynı fotoğraf önbelleğe alınır.)"""
         bad = _check_password(password)
         if bad:
             return bad
@@ -108,7 +108,7 @@ def register(app, run_pipeline, fetch_bytes):
             params = json.loads(layout_params) if layout_params else None
         except ValueError:
             params = None
-        img = prepare_conditioning_image(raw_bytes, "bouquet" if layout == "bouquet" else None, params)
+        img = prepare_conditioning_image(raw_bytes, (layout if layout in ("bouquet", "cutout") else None), params)
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=88)
         return Response(content=buf.getvalue(), media_type="image/jpeg")
@@ -151,7 +151,7 @@ def register(app, run_pipeline, fetch_bytes):
         )
 
         if layout is not None:
-            painting["conditioning_layout"] = "bouquet" if layout == "bouquet" else None
+            painting["conditioning_layout"] = (layout if layout in ("bouquet", "cutout") else None)
         if layout_params:
             try:
                 lp = json.loads(layout_params)
@@ -277,7 +277,7 @@ HTML = r"""<!doctype html>
     <div class="grid2">
       <div>
         <span class="lbl">Yerleşim</span>
-        <select id="layout"><option value="bouquet">Buket elipsi (önerilen)</option><option value="none">Eski: tüm tuval</option></select>
+        <select id="layout"><option value="cutout">Arka planı sil + elipse sığdır (YENİ)</option><option value="bouquet">Buket elipsi (kare portre)</option><option value="none">Eski: tüm tuval</option></select>
       </div>
       <div>
         <span class="lbl">Elips dışı parlaklık (0 siyah, 24 önerilen)</span>
@@ -294,6 +294,8 @@ HTML = r"""<!doctype html>
         <div class="hint">Portre çevresindeki açık zemin. Saçlar kayboluyorsa artır, arka plana iz sızıyorsa düşür.</div></div>
       <div><span class="lbl">Portre dikey kayma (−0.15…0.15, + aşağı)</span><input id="l_dy" type="text">
         <div class="hint">Kafa tepesi kesiliyorsa pozitif yap (portre aşağı iner).</div></div>
+      <div><span class="lbl">Kişi sığdırma oranı (0.5–1.0, sadece "arka planı sil")</span><input id="l_fit" type="text">
+        <div class="hint">Kişi elipse ne kadar dolu otursun. Taşıyorsa düşür, küçük kalıyorsa artır.</div></div>
       <div><span class="lbl">Baş üstü boşluğu (0.3–1.6)</span><input id="l_pt" type="text">
         <div class="hint">Saç kırpılıyorsa artır. Fotoğrafın kendisinde boşluk yoksa etkisi sınırlıdır.</div></div>
     </div>
@@ -388,6 +390,7 @@ function loadDefaults() {
   $('l_s').value = (lp.size === undefined ? 0.68 : lp.size);
   $('l_halo').value = (lp.halo === undefined ? 150 : lp.halo);
   $('l_dy').value = (lp.dy === undefined ? 0.02 : lp.dy);
+  $('l_fit').value = (lp.fit === undefined ? 0.92 : lp.fit);
   $('l_pt').value = (lp.pad_top === undefined ? 1.0 : lp.pad_top);
   updateCount();
 }
@@ -406,7 +409,8 @@ function layoutParams() {
     size: parseFloat($('l_s').value),
     halo: parseFloat($('l_halo').value),
     dy: parseFloat($('l_dy').value),
-    pad_top: parseFloat($('l_pt').value)
+    pad_top: parseFloat($('l_pt').value),
+    fit: parseFloat($('l_fit').value)
   });
 }
 function updateCount() {
