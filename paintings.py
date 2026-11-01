@@ -154,14 +154,14 @@ PAINTINGS = {
         "negative_prompt": COMMON_NEGATIVE + (
             ", shape in the background, pattern in the background, silhouette "
             "in the background, face in the background, figure in the "
-            "background, gold plate behind the bouquet, gold tray, gold shield, cartouche, ornate gold frame, mirror, arch, headboard, second vase, vase rim above flowers, floating object, cabinet, cupboard, shelf, furniture, door, picture frame, painting on the wall, curtain, drapery, folds, wallpaper pattern, extra vase, multiple vases"
+            "background, damask, wallpaper, floral pattern on the wall, ornate wall pattern, patterned wall, tapestry, textured wall, tablecloth, fabric on the table, red velvet, gold plate behind the bouquet, gold tray, gold shield, cartouche, ornate gold frame, mirror, arch, headboard, second vase, vase rim above flowers, floating object, cabinet, cupboard, shelf, furniture, door, picture frame, painting on the wall, curtain, drapery, folds, wallpaper pattern, extra vase, multiple vases"
         ),
         "conditioning_scale": 1.15,
         "guidance_scale": 7.5,
         "num_inference_steps": 20,
         "control_guidance_end": 1.0,
         # Silüet yalnızca buketin olduğu elipste; arka plan, vazo ve masa sade kalır.
-        "conditioning_layout": "bouquet",
+        "conditioning_layout": "cutout",
         "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.86, "h": 0.66, "feather": 0.10, "bg": 24, "size": 0.68, "halo": 150, "dy": 0.02, "pad_top": 1.0},
     },
 }
