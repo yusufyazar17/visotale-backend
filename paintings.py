@@ -154,7 +154,7 @@ PAINTINGS = {
         "negative_prompt": COMMON_NEGATIVE + (
             ", shape in the background, pattern in the background, silhouette "
             "in the background, face in the background, figure in the "
-            "background, cabinet, cupboard, shelf, furniture, door, picture frame, painting on the wall, curtain, drapery, folds, wallpaper pattern, extra vase, multiple vases"
+            "background, gold plate behind the bouquet, gold tray, gold shield, cartouche, ornate gold frame, mirror, arch, headboard, second vase, vase rim above flowers, floating object, cabinet, cupboard, shelf, furniture, door, picture frame, painting on the wall, curtain, drapery, folds, wallpaper pattern, extra vase, multiple vases"
         ),
         "conditioning_scale": 1.15,
         "guidance_scale": 7.5,
