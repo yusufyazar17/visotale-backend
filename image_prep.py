@@ -255,7 +255,38 @@ def _compose_cutout(raw_bytes: bytes, params: dict | None) -> Image.Image:
     if len(cols) < 10 or len(rows) < 10:
         raise RuntimeError("kişi bulunamadı")
     x0, x1, y0, y1 = int(cols[0]), int(cols[-1]) + 1, int(rows[0]), int(rows[-1]) + 1
+    # --- Yüze yaklaş: kişi uzaktan çekilmişse (yüz, kişinin boyuna göre küçükse)
+    # baştan göğse kadar olan bölgeyi al, vücudu at.
+    fade_bottom = False
+    try:
+        rgb_np = np.array(rgba.convert("RGB"))
+        gray_cv = cv2.cvtColor(rgb_np, cv2.COLOR_RGB2GRAY)
+        faces = [f for f in _detect_faces(gray_cv)
+                 if solid[min(f[1] + f[3] // 2, solid.shape[0] - 1), min(f[0] + f[2] // 2, solid.shape[1] - 1)]]
+        if len(faces) > 0:
+            fx0 = min(f[0] for f in faces); fx1 = max(f[0] + f[2] for f in faces)
+            fy0 = min(f[1] for f in faces); fy1 = max(f[1] + f[3] for f in faces)
+            mh = max(f[3] for f in faces)
+            mw = max(f[2] for f in faces)
+            if mh / float(y1 - y0) < 0.30:
+                nx0 = max(x0, int(fx0 - 0.8 * mw)); nx1 = min(x1, int(fx1 + 0.8 * mw))
+                ny0 = max(y0, int(fy0 - 1.0 * mh)); ny1 = min(y1, int(fy1 + 1.1 * mh))
+                if nx1 - nx0 > 20 and ny1 - ny0 > 20:
+                    x0, x1, y0, y1 = nx0, nx1, ny0, ny1
+                    fade_bottom = True
+    except Exception:
+        pass
+
     person = rgba.crop((x0, y0, x1, y1))
+    if fade_bottom:
+        # göğüs hizasındaki sert kesik yumuşasın
+        pa = np.array(person.split()[3]).astype(np.float32)
+        ph = pa.shape[0]
+        n = max(2, int(ph * 0.22))
+        ramp = np.ones(ph, dtype=np.float32)
+        ramp[-n:] = np.linspace(1.0, 0.0, n)
+        pa = (pa * ramp[:, None]).astype(np.uint8)
+        person.putalpha(Image.fromarray(pa))
     bw, bh = person.size
 
     # gri + kontrast (eski hazırlıkla aynı mantık)
