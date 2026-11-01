@@ -295,10 +295,12 @@ def prepare_conditioning_image(raw_bytes: bytes, layout: str | None = None,
     layout=None      : eski davranış (gri kare, tüm tuvali kaplar)
     layout="bouquet" : silüet yalnızca çiçek elipsinde, dışı koyu
     """
-    if layout == "cutout":
+    if layout in ("cutout", "cutout_strict"):
         try:
             return _compose_cutout(raw_bytes, layout_params)
         except Exception:
+            if layout == "cutout_strict":
+                raise  # test modu: sessizce eski yönteme düşme, hatayı göster
             # arka plan silme başarısızsa eski yönteme düş (üretim durmasın)
             return _compose_bouquet(_gray_square(raw_bytes, 1.0), layout_params)
     if layout == "bouquet":
