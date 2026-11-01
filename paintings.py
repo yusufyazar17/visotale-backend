@@ -169,15 +169,12 @@ PAINTINGS = {
         "artist": "Hollanda ustalarının klasik natürmortu",
         "prompt": (
             "Classic Dutch Golden Age baroque floral still life oil painting, a "
-            "large lush rounded bouquet of cream-white freesias, dusty lavender "
-            "bellflowers, dusty rose and blush-pink ranunculus with a few "
-            "muted terracotta-apricot accents and grey-green foliage, all "
-            "flowers in soft muted matte pastel antique tones, desaturated "
-            "old master palette, not vivid, not neon, not saturated, the bouquet filling the upper two thirds of the canvas, "
-            "standing in one ornate footed gilded bronze urn with heavily "
-            "engraved baroque relief detailing, medallions and warm specular "
-            "highlights, the urn resting on a clean dark wooden table with "
-            "nothing else on it, "
+            "large lush rounded bouquet of white freesias, purple bellflowers, "
+            "crimson and pink ranunculus with a few orange accents and green "
+            "foliage, rich natural old master oil colors with soft painterly "
+            "tones, the bouquet filling the upper two thirds of the canvas, "
+            "standing in one brass urn with a medallion relief and a footed "
+            "base standing on a clean dark wooden table with nothing else on it, "
             "the entire background is one seamless "
             "smooth flat matte dark forest-green wall with a soft gradient from "
             "very dark green at the edges to a slightly lighter deep green "
@@ -188,7 +185,7 @@ PAINTINGS = {
             "detailed"
         ),
         "negative_prompt": COMMON_NEGATIVE + (
-            ", plain vase, simple vase, smooth vase, ceramic vase, glass vase, white vase, undecorated vase, picture frame, wooden frame, molding, border, panel, carved frame, vivid colors, saturated colors, neon colors, oversaturated, shape in the background, pattern in the background, silhouette "
+            ", picture frame, wooden frame, molding, border, panel, carved frame, shape in the background, pattern in the background, silhouette "
             "in the background, face in the background, figure in the "
             "background, damask, wallpaper, floral pattern on the wall, patterned "
             "wall, tapestry, tablecloth, fabric on the table, gold plate behind "
