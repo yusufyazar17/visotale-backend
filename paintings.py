@@ -164,6 +164,40 @@ PAINTINGS = {
         "conditioning_layout": "cutout",
         "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.86, "h": 0.66, "feather": 0.10, "bg": 24, "size": 0.68, "halo": 150, "dy": 0.02, "pad_top": 1.0},
     },
+    "klasik_barok": {
+        "label": "Klasik Barok",
+        "artist": "Hollanda ustalarının klasik natürmortu",
+        "prompt": (
+            "Classic Dutch Golden Age baroque floral still life oil painting, a "
+            "large lush rounded bouquet of white freesias, purple bellflowers, "
+            "crimson and pink ranunculus with a few orange accents and green "
+            "foliage, the bouquet filling the upper two thirds of the canvas, "
+            "standing in one brass urn with a medallion relief and a footed "
+            "base standing on a clean dark wooden table with nothing else on it, "
+            "the entire background is one seamless smooth "
+            "painterly dark umber wall with soft mottled brushwork, empty wall, "
+            "no other objects, single warm light from the upper left, strong "
+            "chiaroscuro, thick textured oil paint with visible brushwork, "
+            "masterpiece, museum quality wall art, gallery lighting, 8k highly "
+            "detailed"
+        ),
+        "negative_prompt": COMMON_NEGATIVE + (
+            ", shape in the background, pattern in the background, silhouette "
+            "in the background, face in the background, figure in the "
+            "background, damask, wallpaper, floral pattern on the wall, patterned "
+            "wall, tapestry, tablecloth, fabric on the table, gold plate behind "
+            "the bouquet, shield, cartouche, ornate frame, mirror, arch, second "
+            "vase, vase rim above flowers, floating object, cabinet, cupboard, "
+            "shelf, furniture, door, picture frame, painting on the wall, "
+            "curtain, drapery, folds, extra vase, multiple vases, loose flowers on the table, fallen petals, scattered leaves, items on the table"
+        ),
+        "conditioning_scale": 1.15,
+        "guidance_scale": 7.5,
+        "num_inference_steps": 20,
+        "control_guidance_end": 1.0,
+        "conditioning_layout": "cutout",
+        "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.88, "h": 0.66, "feather": 0.10, "bg": 24, "size": 0.68, "halo": 150, "dy": 0.02, "pad_top": 1.0, "fit": 0.92},
+    },
 }
 
 
