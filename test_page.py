@@ -108,7 +108,11 @@ def register(app, run_pipeline, fetch_bytes):
             params = json.loads(layout_params) if layout_params else None
         except ValueError:
             params = None
-        img = prepare_conditioning_image(raw_bytes, (layout if layout in ("bouquet", "cutout") else None), params)
+        lay = "cutout_strict" if layout == "cutout" else (layout if layout == "bouquet" else None)
+        try:
+            img = prepare_conditioning_image(raw_bytes, lay, params)
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"ok": False, "error": "Arka plan silinemedi: " + str(e)[:300]})
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=88)
         return Response(content=buf.getvalue(), media_type="image/jpeg")
@@ -151,7 +155,7 @@ def register(app, run_pipeline, fetch_bytes):
         )
 
         if layout is not None:
-            painting["conditioning_layout"] = (layout if layout in ("bouquet", "cutout") else None)
+            painting["conditioning_layout"] = "cutout_strict" if layout == "cutout" else ("bouquet" if layout == "bouquet" else None)
         if layout_params:
             try:
                 lp = json.loads(layout_params)
