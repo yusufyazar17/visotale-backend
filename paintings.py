@@ -205,36 +205,18 @@ PAINTINGS = {
         "label": "Burgonya",
         "artist": "Siyah kadife önünde kalay kupa natürmortu",
         "prompt": (
-            "Dutch Golden Age baroque floral still life oil painting, a dense "
-            "lush rounded bouquet of large layered garden roses in soft peach-cream "
-            "(#efc1a3) with apricot hearts, dusty rose-pink roses (#dd8c95), a few "
-            "raspberry crimson roses (#d52848) and deep burgundy-red roses "
-            "(#6d0015), very dark wine-black chrysanthemums (#3b1014), plume-like "
-            "wine-red celosia (#7d122f), warm cream-beige gerbera daisies "
-            "(#dec895) and small ivory-cream blossom clusters (#f3e3bd), glossy "
-            "blue-black blackberry clusters (#1c1522) and muted grey-olive green "
-            "leaves (#6b7258), rich deep jewel tones with soft warm peach "
-            "highlights, the bouquet filling the upper two thirds of the canvas, "
-            "standing in one antique pewter tin goblet cup with a wide bowl, a "
-            "ribbed stem and a footed round base with aged silver-grey patina "
-            "(#8f9392), the goblet resting on a dark veined stone table "
-            "(#2a2d2b) with nothing else on it, the entire background is a plain "
-            "black velvet drape (#0b0b0d) with soft deep folds, no other "
-            "objects, single soft light from the upper left, strong "
-            "chiaroscuro, thick textured oil paint with visible brushwork, "
-            "masterpiece, museum quality wall art, gallery lighting, 8k highly "
-            "detailed"
+            "baroque floral still life oil painting, one antique pewter tin "
+            "goblet cup with ribbed stem and footed base, filled with a dense "
+            "round bouquet of dark cherry-burgundy and deep wine-red roses, "
+            "burgundy chrysanthemums, blackberries, a few peach-cream roses and "
+            "cream gerbera daisies, olive leaves, dark stone table, black velvet "
+            "drape background, chiaroscuro, thick oil paint, masterpiece"
         ),
-        "negative_prompt": COMMON_NEGATIVE + (
-            ", shape in the background, pattern in the background, silhouette "
-            "in the background, face in the background, figure in the "
-            "background, window, wall, room, damask, wallpaper, picture frame, "
-            "tablecloth, fabric on the table, gold vase, brass vase, golden "
-            "urn, glass vase, ceramic vase, plain vase, second vase, vase rim "
-            "above flowers, floating object, loose flowers on the table, "
-            "fallen petals, scattered leaves, cabinet, shelf, furniture, "
-            "extra vase, multiple vases"
-        ),
+        "negative_prompt": (
+            "gold vase, brass vase, golden urn, plain vase, glass vase, "
+            "ceramic vase, second vase, vase above flowers, loose flowers on "
+            "the table, picture frame, wall pattern, "
+        ) + COMMON_NEGATIVE,
         "conditioning_scale": 1.15,
         "guidance_scale": 7.5,
         "num_inference_steps": 20,
