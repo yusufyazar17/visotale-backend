@@ -201,6 +201,41 @@ PAINTINGS = {
         "conditioning_layout": "cutout",
         "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.88, "h": 0.66, "feather": 0.10, "bg": 24, "size": 0.68, "halo": 150, "dy": 0.02, "pad_top": 1.0, "fit": 0.92},
     },
+    "burgonya": {
+        "label": "Burgonya",
+        "artist": "Siyah kadife önünde kalay kupa natürmortu",
+        "prompt": (
+            "Dutch Golden Age baroque floral still life oil painting, a dense "
+            "lush rounded bouquet of powder-pink and fuchsia garden roses, "
+            "burgundy chrysanthemums, clusters of dark blackberries and white "
+            "gerbera daisies with olive-green leaves, the bouquet filling the "
+            "upper two thirds of the canvas, standing in one antique pewter "
+            "tin goblet cup with a wide bowl, a ribbed stem and a footed round "
+            "base with aged silver-grey patina, the goblet resting on a dark "
+            "veined stone table with nothing else on it, the entire background "
+            "is a plain black velvet drape with soft deep folds, no other "
+            "objects, single soft light from the upper left, strong "
+            "chiaroscuro, thick textured oil paint with visible brushwork, "
+            "masterpiece, museum quality wall art, gallery lighting, 8k highly "
+            "detailed"
+        ),
+        "negative_prompt": COMMON_NEGATIVE + (
+            ", shape in the background, pattern in the background, silhouette "
+            "in the background, face in the background, figure in the "
+            "background, window, wall, room, damask, wallpaper, picture frame, "
+            "tablecloth, fabric on the table, gold vase, brass vase, golden "
+            "urn, glass vase, ceramic vase, plain vase, second vase, vase rim "
+            "above flowers, floating object, loose flowers on the table, "
+            "fallen petals, scattered leaves, cabinet, shelf, furniture, "
+            "extra vase, multiple vases"
+        ),
+        "conditioning_scale": 1.15,
+        "guidance_scale": 7.5,
+        "num_inference_steps": 20,
+        "control_guidance_end": 1.0,
+        "conditioning_layout": "cutout",
+        "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.88, "h": 0.66, "feather": 0.10, "bg": 24, "size": 0.68, "halo": 150, "dy": 0.02, "pad_top": 1.0, "fit": 0.92},
+    },
 }
 
 
