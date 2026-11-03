@@ -206,9 +206,14 @@ PAINTINGS = {
         "artist": "Siyah kadife önünde kalay kupa natürmortu",
         "prompt": (
             "Dutch Golden Age baroque floral still life oil painting, a dense "
-            "lush rounded bouquet of powder-pink and fuchsia garden roses, "
-            "burgundy chrysanthemums, clusters of dark blackberries and white "
-            "gerbera daisies with olive-green leaves, the bouquet filling the "
+            "lush rounded bouquet of large soft peach-cream and pale blush-pink "
+            "double garden roses with apricot-orange hearts, a few raspberry "
+            "coral-pink and deep crimson-red roses, dark wine-burgundy "
+            "chrysanthemums and plume-like burgundy celosia, clusters of glossy "
+            "blue-black blackberries, creamy ivory-white gerbera daisies and "
+            "tiny white blossom clusters, with matte grey-green olive leaves, "
+            "rich deep jewel tones with soft warm peach highlights, the "
+            "bouquet filling the "
             "upper two thirds of the canvas, standing in one antique pewter "
             "tin goblet cup with a wide bowl, a ribbed stem and a footed round "
             "base with aged silver-grey patina, the goblet resting on a dark "
