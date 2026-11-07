@@ -45,6 +45,33 @@ PAINTINGS = {
         "conditioning_layout": "cutout",
         "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.88, "h": 0.66, "feather": 0.10, "bg": 24, "size": 0.68, "halo": 150, "dy": 0.02, "pad_top": 1.0, "fit": 0.92},
     },
+    "beyaz_sakayik": {
+        "label": "Beyaz Şakayık",
+        "artist": "Siyah zemin üzerinde beyaz çiçek natürmortu",
+        "prompt": (
+            "dark moody baroque still life oil painting, a large loose airy "
+            "bouquet made only of ivory-white peonies with golden-yellow "
+            "centers, white tulips and tiny white wildflowers with dark green "
+            "leaves and stems, in a plain cream-white glazed ceramic round "
+            "vase, white satin drape hanging on the left, a few white petals "
+            "fallen on a dark polished wooden table, pitch black background, "
+            "single soft light from the upper left, deep chiaroscuro, "
+            "monochrome white and black palette, thick oil paint, painting "
+            "not photograph"
+        ),
+        "negative_prompt": COMMON_NEGATIVE + (
+            ", photograph, studio photo, bright background, gray wall, "
+            "colored flowers, orange, pink, purple, red, yellow petals, "
+            "gold vase, brass urn, picture frame, border, wallpaper, "
+            "multiple vases, pastel colors"
+        ),
+        "conditioning_scale": 1.15,
+        "guidance_scale": 7.5,
+        "num_inference_steps": 20,
+        "control_guidance_end": 1.0,
+        "conditioning_layout": "cutout",
+        "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.88, "h": 0.66, "feather": 0.10, "bg": 24, "size": 0.68, "halo": 150, "dy": 0.02, "pad_top": 1.0, "fit": 0.92},
+    },
 }
 
 
