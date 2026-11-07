@@ -42,8 +42,6 @@ PAINTINGS = {
         "guidance_scale": 7.5,
         "num_inference_steps": 20,
         "control_guidance_end": 1.0,
-        "conditioning_layout": "cutout",
-        "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.88, "h": 0.66, "feather": 0.10, "bg": 24, "size": 0.68, "halo": 150, "dy": 0.02, "pad_top": 1.0, "fit": 0.92},
     },
     "beyaz_sakayik": {
         "label": "Beyaz Şakayık",
@@ -69,8 +67,6 @@ PAINTINGS = {
         "guidance_scale": 7.5,
         "num_inference_steps": 20,
         "control_guidance_end": 1.0,
-        "conditioning_layout": "cutout",
-        "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.88, "h": 0.66, "feather": 0.10, "bg": 24, "size": 0.68, "halo": 150, "dy": 0.02, "pad_top": 1.0, "fit": 0.92},
     },
 }
 
