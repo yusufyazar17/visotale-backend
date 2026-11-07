@@ -1,16 +1,7 @@
 """
-Visotale — 4 amiral gemisi tablo tanımı.
-
-Her tablonun prompt / negative_prompt / controlnet_conditioning_scale değeri,
-fal.ai illusion-diffusion playground'unda elle test edilip onaylanan
-değerlerdir (bkz. proje sohbet geçmişi). Buradaki sayıları değiştirirken
-dikkatli ol — her biri "tablo tanınıyor + yüz gizli ama gözünü kısınca
-çıkıyor" dengesi için özel ayarlandı.
-
-STRENGTH_DELTA: müşterinin seçtiği "Az / Orta / Çok" belirginlik seviyesi,
-tablonun temel conditioning_scale değerine eklenen/çıkarılan bir pay.
-"Az" -> yüz daha gizli ama tablo daha sağlam kalır (bozulma riski azalır).
-"Çok" -> yüz daha belirgin çıkar ama tablo bozulma riski artar.
+Visotale — 12 stil tanımı (sıfırdan yeniden kuruluyor).
+Her stil, kullanıcının verdiği referans görselden üretilmiş prompt ile eklenir.
+Şimdilik: 1/12 -> klasik_barok
 """
 
 COMMON_NEGATIVE = (
@@ -21,202 +12,35 @@ COMMON_NEGATIVE = (
     "poorly drawn, bad anatomy, disproportionate"
 )
 
-STRENGTH_DELTA = {
-    "az": -0.10,
-    "orta": 0.0,
-    "cok": 0.10,
-}
+STRENGTH_DELTA = {"az": -0.10, "orta": 0.0, "cok": 0.10}
 
 PAINTINGS = {
-    "starry_night": {
-        "label": "Yıldızlı Gece",
-        "artist": "Van Gogh",
-        "prompt": (
-            'Vincent van Gogh "The Starry Night" (1889), post-impressionist oil '
-            "painting on canvas, turbulent night sky filled with swirling spiral "
-            "currents in deep ultramarine, cobalt blue, and indigo blending into "
-            "pale cerulean, eleven radiant golden-yellow stars each haloed with "
-            "concentric glowing rings, one oversized luminous crescent moon in "
-            "the upper right glowing amber-gold, one tall dark flame-shaped "
-            "cypress tree in the foreground reaching into the sky with twisting "
-            "black-green silhouette, small sleeping village below with pointed "
-            "blue-roofed cottages and one tall church spire, rolling indigo hills "
-            "in the background, thick heavy impasto brushstrokes applied in "
-            "rhythmic curving strokes following the movement of the sky, visible "
-            "raised paint texture, rich saturated color palette, masterpiece, "
-            "museum quality wall art, gallery lighting, 8k highly detailed"
-        ),
-        "negative_prompt": COMMON_NEGATIVE,
-        "conditioning_scale": 1.1,
-        "guidance_scale": 7.5,
-        "num_inference_steps": 20,
-        "control_guidance_end": 1.0,
-    },
-    "monet_bridge": {
-        "label": "Nilüfer Havuzu / Japon Köprüsü",
-        "artist": "Claude Monet",
-        "prompt": (
-            'Claude Monet "The Water Lily Pond" (1899), impressionist oil painting '
-            "on canvas, Giverny garden, an arched wooden Japanese footbridge "
-            "painted soft sage-green spanning the width of the canvas, ornate "
-            "curved railings with visible wood grain, cascading weeping willow "
-            "branches draping down from both sides framing the bridge, dense "
-            "layered green foliage in emerald, olive, and sage tones, calm "
-            "pond water beneath scattered with round lily pads and blooming "
-            "water lilies in soft pink, white, and pale yellow, gentle mirror-like "
-            "reflections of the bridge and trees rippling on the water surface, "
-            "warm dappled sunlight filtering through leaves creating patches of "
-            "golden light, loose visible impressionist brushstrokes, soft "
-            "atmospheric color blending, tranquil plein-air painting, masterpiece, "
-            "museum quality wall art, gallery lighting, 8k highly detailed"
-        ),
-        "negative_prompt": COMMON_NEGATIVE,
-        "conditioning_scale": 1.15,
-        "guidance_scale": 7.5,
-        "num_inference_steps": 20,
-        "control_guidance_end": 1.0,
-    },
-    "baroque_bouquet": {
-        "label": "Barok Çiçek Buketi",
-        "artist": "Klasik natürmort",
-        "prompt": (
-            "Classical Dutch Golden Age still life painting, a lush bouquet of "
-            "multiple full-bloom flowers densely clustered together — crimson-red "
-            "and blush-pink peonies, deep burgundy roses, white ranunculus, and "
-            "small purple accent blooms — with overlapping ruffled petals and "
-            "soft green leaves filling the bouquet, standing in a single tall "
-            "slender polished bronze vase with engraved detailing and bright "
-            "specular highlights, the vase resting on a flat light gray stone "
-            "table surface that spans the bottom of the frame, the table is the "
-            "only surface visible, everything above and behind the bouquet is "
-            "pure solid black background with no other objects and no texture, "
-            "single dramatic light source from the upper left illuminating the "
-            "petals, vase, and table surface with strong chiaroscuro contrast, "
-            "the petals rendered with thick textured oil paint and visible "
-            "brushwork, masterpiece, museum quality wall art, gallery lighting, "
-            "8k highly detailed"
-        ),
-        "negative_prompt": COMMON_NEGATIVE,
-        "conditioning_scale": 1.15,
-        "guidance_scale": 7.5,
-        "num_inference_steps": 20,
-        "control_guidance_end": 1.0,
-    },
-    "sunflower_bouquet": {
-        "label": "Ayçiçeği Buketi",
-        "artist": "Van Gogh esintili natürmort",
-        "prompt": (
-            "Opulent Baroque-style still life of sunflowers in the spirit of "
-            "Van Gogh, a lush overflowing bouquet completely filling the canvas "
-            "edge to edge, dozens of vivid golden-yellow sunflowers of varying "
-            "sizes and open angles with thick textured brown-black seed centers "
-            "and curling ochre petals, interwoven with small orange wildflowers, "
-            "golden wheat stalks, dried rust-brown seed heads, and dark olive-green "
-            "foliage filling every gap between blooms, arranged in an ornate "
-            "polished bronze footed urn with engraved detailing and warm specular "
-            "highlights, urn resting on a dark wooden surface, warm amber and "
-            "honey-toned dramatic chiaroscuro lighting from one side against a "
-            "deep warm-brown background, thick expressive impasto brushstrokes "
-            "with visible raised paint texture, masterpiece, museum quality wall "
-            "art, gallery lighting, 8k highly detailed"
-        ),
-        "negative_prompt": COMMON_NEGATIVE,
-        "conditioning_scale": 1.2,
-        "guidance_scale": 7.5,
-        "num_inference_steps": 20,
-        "control_guidance_end": 1.0,
-    },
-
-    # ------------------------------------------------------------------
-    # YENİ STİL (test aşamasında — sonuçlara göre ayarlanır)
-    # Diğer yeni stiller (Yılbaşı Ağacı, Ayçiçeği Salonu vb.) bu stil
-    # mükemmelleşince tek tek eklenecek.
-    # ------------------------------------------------------------------
-    "sakayik_buketi": {
-        "label": "Barok Şakayık Buketi",
-        "artist": "Hollanda Altın Çağı natürmortu",
-        "prompt": (
-            "Dutch Golden Age baroque floral still life oil painting, a dense "
-            "overflowing bouquet of peonies in blush-pink, deep magenta-burgundy "
-            "and cream-white with golden centers, ruffled layered petals and dark "
-            "green leaves, the bouquet filling the upper two thirds of the "
-            "canvas, standing in one ornate footed gilded bronze urn with "
-            "engraved detailing and warm specular highlights, the urn resting on "
-            "a dark veined black marble table, the entire background is one "
-            "seamless smooth hand-painted plaster wall with a soft gradient "
-            "from deep warm umber at the edges to a gentle glowing olive-bronze "
-            "behind the flowers, classical baroque atmosphere, empty wall, no "
-            "other objects, single "
-            "dramatic light from the upper left, strong chiaroscuro, thick "
-            "textured oil paint with visible brushwork, masterpiece, museum "
-            "quality wall art, gallery lighting, 8k highly detailed"
-        ),
-        "negative_prompt": COMMON_NEGATIVE + (
-            ", shape in the background, pattern in the background, silhouette "
-            "in the background, face in the background, figure in the "
-            "background, damask, wallpaper, floral pattern on the wall, ornate wall pattern, patterned wall, tapestry, textured wall, tablecloth, fabric on the table, red velvet, gold plate behind the bouquet, gold tray, gold shield, cartouche, ornate gold frame, mirror, arch, headboard, second vase, vase rim above flowers, floating object, cabinet, cupboard, shelf, furniture, door, picture frame, painting on the wall, curtain, drapery, folds, wallpaper pattern, extra vase, multiple vases"
-        ),
-        "conditioning_scale": 1.15,
-        "guidance_scale": 7.5,
-        "num_inference_steps": 20,
-        "control_guidance_end": 1.0,
-        # Silüet yalnızca buketin olduğu elipste; arka plan, vazo ve masa sade kalır.
-        "conditioning_layout": "cutout",
-        "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.86, "h": 0.66, "feather": 0.10, "bg": 24, "size": 0.68, "halo": 150, "dy": 0.02, "pad_top": 1.0},
-    },
     "klasik_barok": {
         "label": "Klasik Barok",
-        "artist": "Hollanda ustalarının klasik natürmortu",
+        "artist": "Hollanda Altın Çağı çiçek natürmortu",
         "prompt": (
-            "Classic Dutch Golden Age baroque floral still life oil painting, a "
-            "large lush rounded bouquet of white freesias, purple bellflowers, "
-            "crimson and pink ranunculus with a few orange accents and green "
-            "foliage, rich natural old master oil colors with soft painterly "
-            "tones, the bouquet filling the upper two thirds of the canvas, "
-            "standing in one brass urn with a medallion relief and a footed "
-            "base standing on a clean dark wooden table with nothing else on it, "
-            "the entire background is one seamless "
-            "smooth flat matte dark forest-green wall with a soft gradient from "
-            "very dark green at the edges to a slightly lighter deep green "
-            "behind the flowers, plain wall without any frame or border, empty "
-            "wall, no other objects, single warm light from the upper left, strong "
-            "chiaroscuro, thick textured oil paint with visible brushwork, "
-            "masterpiece, museum quality wall art, gallery lighting, 8k highly "
-            "detailed"
+            "classic Dutch Golden Age baroque floral still life oil painting, a "
+            "huge lush overflowing rounded bouquet of ivory-white peonies and "
+            "freesias, royal purple bellflowers, deep burgundy-red carnations, "
+            "blush pink ranunculus roses and a few burnt orange tulips, with "
+            "slender green leaves and buds, the bouquet filling the upper "
+            "three quarters of the canvas, standing in one ornate antique "
+            "aged-gold brass urn with a round medallion relief and a footed "
+            "base, on a worn dark wooden table with a few fallen blossoms and "
+            "petals resting on the table at the bottom, background a dark "
+            "mottled brown-black wall with soft painterly brushwork, single "
+            "warm light from the upper left, dramatic chiaroscuro, rich "
+            "saturated jewel tones, glossy highlights, thick textured oil "
+            "paint, Old Masters realism, masterpiece, museum quality wall art, "
+            "8k highly detailed"
         ),
         "negative_prompt": COMMON_NEGATIVE + (
-            ", picture frame, wooden frame, molding, border, panel, carved frame, shape in the background, pattern in the background, silhouette "
-            "in the background, face in the background, figure in the "
-            "background, damask, wallpaper, floral pattern on the wall, patterned "
-            "wall, tapestry, tablecloth, fabric on the table, gold plate behind "
-            "the bouquet, shield, cartouche, ornate frame, mirror, arch, second "
-            "vase, vase rim above flowers, floating object, cabinet, cupboard, "
-            "shelf, furniture, door, picture frame, painting on the wall, "
-            "curtain, drapery, folds, extra vase, multiple vases, loose flowers on the table, fallen petals, scattered leaves, items on the table"
+            ", picture frame, wooden frame, border, molding, face in the "
+            "background, figure in the background, shape in the background, "
+            "wallpaper, damask, tablecloth, curtain, drapery, second vase, "
+            "multiple vases, vase rim above flowers, cabinet, shelf, door, "
+            "mirror, neon colors, pastel washed-out colors, flat illustration"
         ),
-        "conditioning_scale": 1.15,
-        "guidance_scale": 7.5,
-        "num_inference_steps": 20,
-        "control_guidance_end": 1.0,
-        "conditioning_layout": "cutout",
-        "layout_params": {"cx": 0.50, "cy": 0.38, "w": 0.88, "h": 0.66, "feather": 0.10, "bg": 24, "size": 0.68, "halo": 150, "dy": 0.02, "pad_top": 1.0, "fit": 0.92},
-    },
-    "burgonya": {
-        "label": "Burgonya",
-        "artist": "Siyah kadife önünde kalay kupa natürmortu",
-        "prompt": (
-            "baroque floral still life oil painting, one antique pewter tin "
-            "goblet cup with ribbed stem and footed base, filled with a dense "
-            "round bouquet of dark cherry-burgundy and deep wine-red roses, "
-            "burgundy chrysanthemums, blackberries, a few peach-cream roses and "
-            "cream gerbera daisies, olive leaves, dark stone table, black velvet "
-            "drape background, chiaroscuro, thick oil paint, masterpiece"
-        ),
-        "negative_prompt": (
-            "gold vase, brass vase, golden urn, plain vase, glass vase, "
-            "ceramic vase, second vase, vase above flowers, loose flowers on "
-            "the table, picture frame, wall pattern, "
-        ) + COMMON_NEGATIVE,
         "conditioning_scale": 1.15,
         "guidance_scale": 7.5,
         "num_inference_steps": 20,
@@ -231,10 +55,8 @@ def get_painting(key: str, strength: str = "orta"):
     base = PAINTINGS.get(key)
     if not base:
         return None
-
     delta = STRENGTH_DELTA.get(strength, 0.0)
-    painting = dict(base)  # kopya — orijinali değiştirme
+    painting = dict(base)
     scale = base["conditioning_scale"] + delta
-    # güvenli aralık dışına taşmasın (çok düşükte yüz hiç çıkmaz, çok yüksekte tablo bozulur)
     painting["conditioning_scale"] = max(0.85, min(1.5, round(scale, 2)))
     return painting
