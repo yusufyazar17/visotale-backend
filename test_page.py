@@ -130,6 +130,7 @@ def register(app, run_pipeline, fetch_bytes):
         control_guidance_end: str | None = Form(None),
         layout: str | None = Form(None),
         layout_params: str | None = Form(None),
+        template: UploadFile | None = File(None),
     ):
         global _runs
 
@@ -164,6 +165,16 @@ def register(app, run_pipeline, fetch_bytes):
             except ValueError:
                 pass
 
+        if template is not None and template.filename:
+            from PIL import Image
+            import base64
+            tb = template.file.read()
+            im = Image.open(io.BytesIO(tb)).convert("RGB")
+            im.thumbnail((1536, 1536))
+            tbuf = io.BytesIO()
+            im.save(tbuf, format="JPEG", quality=92)
+            painting["template_url"] = "data:image/jpeg;base64," + base64.b64encode(tbuf.getvalue()).decode()
+
         raw_bytes = file.file.read()
         if not raw_bytes:
             return JSONResponse(status_code=400, content={"ok": False, "error": "Boş dosya."})
@@ -183,7 +194,11 @@ def register(app, run_pipeline, fetch_bytes):
 
         def worker():
             try:
-                result = run_pipeline(raw_bytes, painting_key, painting)
+                if painting.get("engine") == "flux":
+                    from flux_run import run_flux
+                    result = run_flux(raw_bytes, painting_key, painting)
+                else:
+                    result = run_pipeline(raw_bytes, painting_key, painting)
                 jobs.set_job_done(job_id, result)
             except HTTPException as exc:
                 jobs.set_job_error(job_id, str(exc.detail))
@@ -264,6 +279,8 @@ HTML = r"""<!doctype html>
         <input id="pw" type="password" placeholder="TEST_PASSWORD" autocomplete="off">
         <span class="lbl">Fotoğraflar (birden fazla seçebilirsin)</span>
         <input id="files" type="file" accept="image/*" multiple>
+        <span class="lbl">Referans tablo (Flux stilleri için, tek görsel)</span>
+        <input id="tpl" type="file" accept="image/*">
       </div>
       <div>
         <span class="lbl">Stil</span>
@@ -560,6 +577,7 @@ function pump() {
     fd.append('control_guidance_end', t.p.cge);
     fd.append('layout', t.layout);
     fd.append('layout_params', t.lp);
+    if ($('tpl').files[0]) fd.append('template', $('tpl').files[0]);
     (function (tt) {
       fetch('/test/run', { method: 'POST', body: fd }).then(function (r) {
         return r.json().then(function (j) { return { status: r.status, body: j }; });
