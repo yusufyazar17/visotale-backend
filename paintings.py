@@ -38,6 +38,9 @@ PAINTINGS = {
             "multiple vases, vase rim above flowers, cabinet, shelf, door, "
             "mirror, neon colors, pastel washed-out colors, flat illustration"
         ),
+        "engine": "flux",
+        "template_url": "PASTE_REFERANS_GORSEL_URL",
+        "flux": {"strength": 0.8, "cn_scale": 0.7, "cn_end": 0.8, "steps": 28, "guidance": 3.5},
         "conditioning_scale": 1.15,
         "guidance_scale": 7.5,
         "num_inference_steps": 20,
@@ -63,6 +66,9 @@ PAINTINGS = {
             "gold vase, brass urn, picture frame, border, wallpaper, "
             "multiple vases, pastel colors"
         ),
+        "engine": "flux",
+        "template_url": "PASTE_REFERANS_GORSEL_URL",
+        "flux": {"strength": 0.8, "cn_scale": 0.7, "cn_end": 0.8, "steps": 28, "guidance": 3.5},
         "conditioning_scale": 1.15,
         "guidance_scale": 7.5,
         "num_inference_steps": 20,
