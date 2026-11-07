@@ -30,7 +30,7 @@ import jobs
 from paintings import PAINTINGS, get_painting
 
 # Panelde yalnızca bu stiller listelenir (kafa karışıklığı olmasın diye).
-ACTIVE_TEST_STYLES = ("klasik_barok",)
+ACTIVE_TEST_STYLES = ("klasik_barok", "beyaz_sakayik")
 
 TEST_PASSWORD = os.environ.get("TEST_PASSWORD", "")
 TEST_MAX_RUNS = int(os.environ.get("TEST_MAX_RUNS", "300"))
