@@ -72,6 +72,14 @@ def register(app, run_pipeline, fetch_bytes):
         if k in ACTIVE_TEST_STYLES
     }
 
+    @app.get("/studio", response_class=HTMLResponse)
+    async def studio_page():
+        from studio_page import STUDIO_HTML
+        return (
+            STUDIO_HTML.replace("__STYLES__", json.dumps(styles, ensure_ascii=False))
+            .replace("__DEFAULTS__", json.dumps(defaults, ensure_ascii=False))
+        )
+
     @app.get("/test", response_class=HTMLResponse)
     async def test_page():
         return (
